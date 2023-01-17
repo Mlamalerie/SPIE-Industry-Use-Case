@@ -7,26 +7,29 @@ import pandas as pd
 
 
 # %%
-def get_dict_parents_enfants(csv_file="data lien reseau maison - parent et enfants.csv") -> dict:
+def get_dict_parents_enfants(heads=None) -> dict:
+    # provide absolute path to the data folder
+    csv_file = f"{os.path.dirname(__file__)}/data lien reseau maison - parent et enfants.csv"
     df_parents_enfants = pd.read_csv(csv_file)
     df_parents_enfants_group = df_parents_enfants.groupby("Parent")["Enfant"].apply(list)
+    if heads is not None:
+        df_parents_enfants_group = df_parents_enfants_group.head(heads)
     return df_parents_enfants_group.to_dict()
 
 
 # %%
 class ConsommationDataManager:
-    logements_loaded = {}  # todo : dont use {"df_conso"} and rename logements_dfs = {}
-
+    df_logements_loaded = {}
     conso_reseau_distribt_path = f"{os.path.dirname(__file__)}/conso_reseau_distriBT/"
 
-    def __init__(self):
+    def __init__(self, processing_neg_values="abs"):
         self.logements_names = []
         self.load_logements_names()
         self.logements_types = []
         self.load_logements_types()
 
     def is_logement_loaded(self, logement_name: str) -> bool:
-        return logement_name in self.logements_loaded
+        return logement_name in self.df_logements_loaded
 
     def is_logement_name_exists(self, name: str) -> bool:
         return name in self.logements_names
@@ -76,8 +79,14 @@ class ConsommationDataManager:
         # set index to "date" column
         df = df.set_index("date")
 
+        # processing neg values
+        if self.processing_neg_values == "abs":
+            df = df.abs()
+        else:
+            df = df.clip(lower=0)
+
         logement_name = self.get_logement_name_from_csv_file(csv_filepath)
-        self.logements_loaded[logement_name] = {"df_conso": df}
+        self.df_logements_loaded[logement_name] = df
 
     def load_dfs_conso_from_logements_dirpath(self, dirpath: str) -> None:
         if not os.path.isdir(dirpath) or not os.path.exists(dirpath):
@@ -116,7 +125,7 @@ class ConsommationDataManager:
         for i, dirpath in enumerate(dirs):
             self.__display_loading_bar(i, len(dirs))
             self.load_dfs_conso_from_logements_dirpath(dirpath)
-        self.__display_loading_bar(i, len(dirs))
+        self.__display_loading_bar(i + 1, len(dirs))
 
     def get_df_conso_by_logement_name(self, name: str) -> pd.DataFrame:
         if not self.is_logement_name_exists(name):
@@ -126,7 +135,7 @@ class ConsommationDataManager:
                 self.load_df_conso_from_csv(csv_query[0])
             else:
                 raise KeyError(f"Logement {name} (data_maison_{name}.csv) not found")
-        return self.logements_loaded[name]["df_conso"]
+        return self.df_logements_loaded[name]
 
     def get_dfs_conso_by_logement_type(self, logement_type: str) -> Dict[str, pd.DataFrame]:
         if not self.is_logement_type_exists(logement_type):
@@ -156,11 +165,11 @@ def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv")
     return df.to_dict(orient="index")
 
 
-def get_df_table_equipements_par_logements(csv_path: str = "data équipement maison - table.csv", keep_logement_type_col=False) -> pd.DataFrame:
-
+def get_df_table_equipements_par_logements(csv_path: str = "data équipement maison - table.csv",
+                                           keep_logement_type_col=False) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     equipements = get_dict_equipements_infos()
-    df.columns = ["logement_name","logement_type"] + list(equipements.keys())
+    df.columns = ["logement_name", "logement_type"] + list(equipements.keys())
     if not keep_logement_type_col:
         df = df.drop(columns=["logement_type"])
     df.set_index("logement_name", inplace=True)
