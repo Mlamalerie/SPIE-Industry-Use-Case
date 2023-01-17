@@ -24,7 +24,7 @@ def get_all_ancestors(pl_id: str, sort_desc=True) -> list:
     while pl_id != 'PS':
         pl_id = level_up_pl(pl_id)
         ancestors.append(pl_id)
-    return ancestors if not sort_desc else ancestors[::-1]
+    return ancestors[::-1] if sort_desc else ancestors
 
 
 print(get_all_ancestors("PL122"))
@@ -44,8 +44,9 @@ class Reseau():
         self.construct_tree()
 
     def logement_name_to_node_name(self, parent_name, logement_name: str) -> str:
-        node_name = "/".join(get_all_ancestors(parent_name) + [f"{parent_name}/{logement_name}"])
-        return node_name
+        return "/".join(
+            get_all_ancestors(parent_name) + [f"{parent_name}/{logement_name}"]
+        )
 
     def sum_leafs(self, node: Node) -> float:
         if node.is_leaf:
@@ -98,18 +99,22 @@ class Reseau():
             raise ValueError("Tree is not constructed yet")
 
         if display_stats and self.schedules:
-            n_leaves = len(list(self.tree.leaves))
-            conso = self.get_cost_global()
-            print("-" * 1, "GLOBAL STATS", "-" * 35)
-            print("* Cost accumulés:", conso, "\n")
-            print("-" * 1, f"LEAFS STATS ({n_leaves} logements)", "-" * 22)
-            mean_, std_, min_, max_ = self.get_basic_stats_leafs_cost()
-            print("* Cost moyenne:", mean_)
-            print("* Cost std:", round(std_))
-            print("* Cost min:", min_)
-            print("* Cost max:", max_)
-            print("-" * 50)
+            self._print_stats()
         print_tree(self.tree, attr_list=["cost"])
+        print("-" * 50)
+
+    # TODO Rename this here and in `print`
+    def _print_stats(self):
+        n_leaves = len(list(self.tree.leaves))
+        conso = self.get_cost_global()
+        print("-" * 1, "GLOBAL STATS", "-" * 35)
+        print("* Cost accumulés:", conso, "\n")
+        print("-" * 1, f"LEAFS STATS ({n_leaves} logements)", "-" * 22)
+        mean_, std_, min_, max_ = self.get_basic_stats_leafs_cost()
+        print("* Cost moyenne:", mean_)
+        print("* Cost std:", round(std_))
+        print("* Cost min:", min_)
+        print("* Cost max:", max_)
         print("-" * 50)
 
 

@@ -152,16 +152,52 @@ class ConsommationDataManager:
         }
 
 
-def get_dict_equipements_infos(csv_path: str = "data équipement maison - caracteristiques.csv", start_header=1) -> dict:
-    # read csv file and swap the first two rows
-    df = pd.read_csv(csv_path, header=start_header)
-    df = df.set_index("Machine" if start_header == 1 else "Type")
+class EquipementsDataManager:
+    caracteristiques_csv_path: str = "data équipement maison - caracteristiques.csv"
+    equipements_par_logements_csv_path: str = "data équipement maison - table.csv"
 
-    df = df.T
-    # On last row, replace N values with 0, and O values with 1
-    df["Sequensable"] = df["Sequensable"].replace({"N": 0, "O": 1})
-    # invert index and columns and return a dict
-    return df.to_dict(orient="index")
+    def __init__(self):
+        # verify if caracteristiques_csv_path exists
+        if not os.path.exists(self.caracteristiques_csv_path):
+            raise FileNotFoundError(f"File {self.caracteristiques_csv_path} not found")
+        # verify if equipements_par_logements_csv_path exists
+        if not os.path.exists(self.equipements_par_logements_csv_path):
+            raise FileNotFoundError(f"File {self.equipements_par_logements_csv_path} not found")
+
+        self.caracteristiques_equipements: dict = None
+        self.equipements_list_par_logements: dict = None
+        self.load_caracteristiques()
+        self.load_equipements_list_par_logement()
+
+    def load_caracteristiques(self, start_header=1) -> dict:
+        df = pd.read_csv(self.caracteristiques_csv_path, header=start_header)
+        df = df.set_index("Machine" if start_header == 1 else "Type")
+        df = df.T
+        # On last row, replace N values with 0, and O values with 1
+        df["Sequensable"] = df["Sequensable"].replace({"N": 0, "O": 1})
+        # invert index and columns and return a dict
+        self.caracteristiques_equipements = df.to_dict(orient="index")
+
+    def get_caracteristiques(self) -> dict:
+        if self.caracteristiques_equipements is None:
+            self.load_caracteristiques()
+        return self.caracteristiques_equipements
+
+    def get_df_equipements_par_logements(self, keep_logement_type_col=False) -> pd.DataFrame:
+        df = pd.read_csv(self.equipements_par_logements_csv_path)
+        df.columns = ["logement_name", "logement_type"] + list(self.caracteristiques_equipements.keys())
+        if not keep_logement_type_col:
+            df = df.drop(columns=["logement_type"])
+        df.set_index("logement_name", inplace=True)
+        return df
+
+    def load_equipements_list_par_logement(self) -> None:
+        """create a dict (key = logement_name, value = list of equipements who equals 1)"""
+        equipements_list = {}
+        df_equipements_par_logements = self.get_df_equipements_par_logements()
+        for logement_name, equipements in df_equipements_par_logements.iterrows():
+            equipements_list[logement_name] = equipements[equipements == 1].index.tolist()
+        self.equipements_list_par_logements = equipements_list
 
 
 def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv") -> dict:
@@ -169,25 +205,13 @@ def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv")
     return df.to_dict(orient="index")
 
 
-def get_df_table_equipements_par_logements(csv_path: str = "data équipement maison - table.csv",
-                                           keep_logement_type_col=False) -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
-    equipements = get_dict_equipements_infos()
-    df.columns = ["logement_name", "logement_type"] + list(equipements.keys())
-    if not keep_logement_type_col:
-        df = df.drop(columns=["logement_type"])
-    df.set_index("logement_name", inplace=True)
-    return df
-
-
-class LimitePuissanceManager():
+class LimitePuissanceDataManager():
     csv_path: str = "data équipement maison - limite de puissance par mc.csv"
 
     def __init__(self):
         self.limites_puissance: list = self.get_limites_de_puissance_par_mc()
 
-    def get_limites_de_puissance_par_mc(self,
-                                        ) -> pd.DataFrame:
+    def get_limites_de_puissance_par_mc(self) -> pd.DataFrame:
         df = pd.read_csv(self.csv_path)
 
         return df.to_dict(orient="records")
@@ -204,12 +228,14 @@ class LimitePuissanceManager():
 
 
 if __name__ == "__main__":
-    lpm = LimitePuissanceManager()  # todo
+    # lpm = LimitePuissanceDataManager()  # todo
+    eqm = EquipementsDataManager()
+
     x = 5
     x += 1
     cdm = ConsommationDataManager()
     # print(cdm.get_df_conso_by_logement_name('A100-3-100'))
     # equipements = get_dict_equipements_infos()
 
-    # table_equipements_par_logements = get_df_table_equipements_par_logements()
+    #
     # recap_type_logement = get_dict_recap_type_logement()
