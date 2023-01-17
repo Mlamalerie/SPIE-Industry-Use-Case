@@ -87,7 +87,7 @@ class ConsommationDataManager:
         if self.processing_neg_values == "abs":
             df = df.abs()
         else:
-            df = df.clip(lower=0)
+            df = df.clip(lower=0)  # todo delete neg values
 
         logement_name = self.get_logement_name_from_csv_file(csv_filepath)
         self.df_logements_loaded[logement_name] = df
@@ -184,24 +184,30 @@ class LimitePuissanceManager():
     csv_path: str = "data équipement maison - limite de puissance par mc.csv"
 
     def __init__(self):
-        self.limites_puissance: list = self.get_limite_de_puissance_par_mc()
+        self.limites_puissance: list = self.get_limites_de_puissance_par_mc()
 
-    def get_limite_de_puissance_par_mc(self,
-                                       ) -> pd.DataFrame:
+    def get_limites_de_puissance_par_mc(self,
+                                        ) -> pd.DataFrame:
         df = pd.read_csv(self.csv_path)
 
         return df.to_dict(orient="records")
 
-    def get_limites(self, surface: float):
-        pass
+    def get_limites_from(self, surface: float):
+        if surface < 0:
+            raise ValueError("Surface must be positive")
+
+        for limite in self.limites_puissance:
+            if limite["Surface_inf"] <= surface < limite["Surface_sup"]:
+                return limite
+
+        return self.limites_puissance[-1]
 
 
 if __name__ == "__main__":
-    d = get_dict_parents_enfants(2, 5)
-    print(d)
     lpm = LimitePuissanceManager()  # todo
-
-    # cdm = ConsommationDataManager()
+    x = 5
+    x += 1
+    cdm = ConsommationDataManager()
     # print(cdm.get_df_conso_by_logement_name('A100-3-100'))
     # equipements = get_dict_equipements_infos()
 
