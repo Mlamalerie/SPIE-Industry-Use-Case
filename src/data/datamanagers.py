@@ -2,14 +2,15 @@ import concurrent.futures
 import os
 from glob import glob
 from typing import Dict
-
+import matplotlib.pyplot as plt
 import pandas as pd
 
 
 # %%
 class ConsommationDataManager:
     logements_loaded = {}  # todo : dont use {"df_conso"} and rename logements_dfs = {}
-    conso_reseau_distribt_path = "conso_reseau_distriBT/"
+
+    conso_reseau_distribt_path = f"{os.path.dirname(__file__)}/conso_reseau_distriBT/"
 
     def __init__(self):
         self.logements_names = []
@@ -140,7 +141,7 @@ def get_dict_equipements_infos(csv_path: str = "data équipement maison - caract
     # On last row, replace N values with 0, and O values with 1
     df["Sequensable"] = df["Sequensable"].replace({"N": 0, "O": 1})
     # invert index and columns and return a dict
-    return df.T.to_dict(orient="index")
+    return df.to_dict(orient="index")
 
 
 def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv") -> dict:
@@ -148,12 +149,14 @@ def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv")
     return df.to_dict(orient="index")
 
 
-def get_df_table_equipements_par_logements(csv_path: str = "data équipement maison - table.csv",
-                                           columns_names=None) -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
-    if columns_names is not None:
-        df.columns = columns_names
+def get_df_table_equipements_par_logements(csv_path: str = "data équipement maison - table.csv", keep_logement_type_col=False) -> pd.DataFrame:
 
+    df = pd.read_csv(csv_path)
+    equipements = get_dict_equipements_infos()
+    df.columns = ["logement_name","logement_type"] + list(equipements.keys())
+    if not keep_logement_type_col:
+        df = df.drop(columns=["logement_type"])
+    df.set_index("logement_name", inplace=True)
     return df
 
 
@@ -166,8 +169,9 @@ def get_limite_de_puissance_par_mc(
 
 
 if __name__ == "__main__":
-    # cdm = ConsommationDataManager()
-    # equipements = get_dict_equipements_infos()
-    limites_puissance = get_limite_de_puissance_par_mc()
-    # table_equipements_par_logements = get_df_table_equipements_par_logements(columns_names=["name","type"] + list(equipements.keys()))
-    # recap_type_logement = get_dict_recap_type_logement()
+    cdm = ConsommationDataManager()
+    print(cdm.get_df_conso_by_logement_name('A100-3-100'))
+    equipements = get_dict_equipements_infos()
+    #limites_puissance = get_limite_de_puissance_par_mc()
+    table_equipements_par_logements = get_df_table_equipements_par_logements()
+    recap_type_logement = get_dict_recap_type_logement()
