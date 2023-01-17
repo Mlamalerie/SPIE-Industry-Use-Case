@@ -1,11 +1,12 @@
 import re
-from random import random
+from typing import List
 
 import numpy as np
-from bigtree import Node, print_tree, dict_to_tree
+from bigtree import Node, print_tree, dict_to_tree, list_to_tree
 from bigtree import find_name as tree_find_name
 
 from src.data.datamanagers import get_dict_parents_enfants
+from src.optimization.genetic_algorithm import Schedule
 
 
 # %%
@@ -32,10 +33,15 @@ print(get_all_ancestors("PL122"))
 # %%
 
 class Reseau():
-    def __init__(self, limit_parents: int = None, limit_child_per_parent: int = None, path_logements_dict=None):
+    def __init__(self, limit_parents: int = None, limit_child_per_parent: int = None, schedules: List[Schedule] = None):
         self.tree = None
-        self.parents_enfants = get_dict_parents_enfants(heads=limit_parents)
-        self.construct_tree(limit_child_per_parent=limit_child_per_parent)
+        self.schedules = schedules
+        self.base_leaves_paths_list = None
+        self.base_leaves_paths_dict = None
+
+        self.parents_enfants = get_dict_parents_enfants(limit_parents=limit_parents,
+                                                        limit_child_per_parent=limit_child_per_parent)
+        self.construct_tree()
 
     def logement_name_to_node_name(self, parent_name, logement_name: str) -> str:
         node_name = "/".join(get_all_ancestors(parent_name) + [f"{parent_name}/{logement_name}"])
@@ -43,35 +49,47 @@ class Reseau():
 
     def sum_leafs(self, node: Node) -> float:
         if node.is_leaf:
-            return node.consommation
+            return node.cost
         else:
             return sum(self.sum_leafs(child) for child in node.children)
 
-    def get_consommation_global(self) -> float:
+    def get_cost_global(self) -> float:
         return self.sum_leafs(self.tree)
 
-    def get_consommation_by_parent(self, parent_name: str) -> float:
+    def get_cost_by_parent(self, parent_name: str) -> float:
         node = tree_find_name(self.tree, parent_name)
         if node is None:
             raise ValueError(f"Parent {parent_name} not found")
         return self.sum_leafs(node)
 
-    def get_basic_stats_leafs_consommation(self) -> float:
-        consommations = np.array([leaf.consommation for leaf in self.tree.leaves])
-        return np.mean(consommations), np.std(consommations), np.min(consommations), np.max(consommations)
+    def get_basic_stats_leafs_cost(self) -> float:
+        costs = np.array([leaf.cost for leaf in self.tree.leaves])
+        return np.mean(costs), np.std(costs), np.min(costs), np.max(costs)
 
-    def construct_tree(self, limit_child_per_parent=None):
-        result = []
-        for parent_name, children in self.parents_enfants.items():
-            result.extend(
-                self.logement_name_to_node_name(parent_name, child)
-                for child in children[:limit_child_per_parent]
-            )
+    def construct_tree(self):
 
-        self.path_dict = {k: {"consommation": round(random(), 1)} for k in result}  # todo
-        self.tree = dict_to_tree(self.path_dict)
+        # self.path_dict = {k: {"cost": round(random(), 1)} for k in result}  # todo
+        if not self.schedules:
+            leaves_paths_list = []
+            for parent_name, children in self.parents_enfants.items():
+                leaves_paths_list.extend(
+                    self.logement_name_to_node_name(parent_name, child)
+                    for child in children
+                )
+            self.base_leaves_paths_list = leaves_paths_list
+            self.tree = list_to_tree(self.base_leaves_paths_list)
+        else:
+            schedules_leaves_paths_list = []
+            self.base_leaves_paths_dict = {}
+            # for each schedule
+            for schedule in self.schedules:
+                leaf_path = self.logement_name_to_node_name(schedule.parent_name, schedule.logement_name)
+                schedules_leaves_paths_list.append(leaf_path)
+                self.base_leaves_paths_dict[leaf_path] = {"cost": schedule.get_cost()}
 
-        # bring up consommation to parents
+            self.tree = dict_to_tree(self.base_leaves_paths_dict)
+
+        # bring up cost to parents
         # for node in self.tree.traverse("postorder"):
         print("The tree has been constructed.")
 
@@ -79,23 +97,25 @@ class Reseau():
         if self.tree is None:
             raise ValueError("Tree is not constructed yet")
 
-        if display_stats:
+        if display_stats and self.schedules:
             n_leaves = len(list(self.tree.leaves))
-            conso = self.get_consommation_global()
+            conso = self.get_cost_global()
             print("-" * 1, "GLOBAL STATS", "-" * 35)
-            print("* Consommation accumulés:", conso, "\n")
+            print("* Cost accumulés:", conso, "\n")
             print("-" * 1, f"LEAFS STATS ({n_leaves} logements)", "-" * 22)
-            mean_, std_, min_, max_ = self.get_basic_stats_leafs_consommation()
-            print("* Consommation moyenne:", mean_)
-            print("* Consommation std:", round(std_))
-            print("* Consommation min:", min_)
-            print("* Consommation max:", max_)
+            mean_, std_, min_, max_ = self.get_basic_stats_leafs_cost()
+            print("* Cost moyenne:", mean_)
+            print("* Cost std:", round(std_))
+            print("* Cost min:", min_)
+            print("* Cost max:", max_)
             print("-" * 50)
-        print_tree(self.tree, attr_list=["consommation"])
+        print_tree(self.tree, attr_list=["cost"])
         print("-" * 50)
 
 
-reseau = Reseau(limit_parents=15, limit_child_per_parent=2)
+parents_enfants = get_dict_parents_enfants(2, 5)
+example_schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
+reseau = Reseau(schedules=example_schedules)
 
 reseau.print()
 

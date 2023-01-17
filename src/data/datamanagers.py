@@ -7,13 +7,17 @@ import pandas as pd
 
 
 # %%
-def get_dict_parents_enfants(heads=None) -> dict:
+def get_dict_parents_enfants(limit_parents: int = None, limit_child_per_parent: int = None) -> dict:
     # provide absolute path to the data folder
     csv_file = f"{os.path.dirname(__file__)}/data lien reseau maison - parent et enfants.csv"
     df_parents_enfants = pd.read_csv(csv_file)
     df_parents_enfants_group = df_parents_enfants.groupby("Parent")["Enfant"].apply(list)
-    if heads is not None:
-        df_parents_enfants_group = df_parents_enfants_group.head(heads)
+    if limit_parents is not None:
+        df_parents_enfants_group = df_parents_enfants_group.head(limit_parents)
+
+    if limit_child_per_parent is not None:
+        df_parents_enfants_group = df_parents_enfants_group.apply(lambda x: x[:limit_child_per_parent])
+
     return df_parents_enfants_group.to_dict()
 
 
@@ -193,7 +197,9 @@ class LimitePuissanceManager():
 
 
 if __name__ == "__main__":
-    lpm = LimitePuissanceManager()
+    d = get_dict_parents_enfants(2, 5)
+    print(d)
+    lpm = LimitePuissanceManager()  # todo
 
     # cdm = ConsommationDataManager()
     # print(cdm.get_df_conso_by_logement_name('A100-3-100'))
@@ -201,4 +207,3 @@ if __name__ == "__main__":
 
     # table_equipements_par_logements = get_df_table_equipements_par_logements()
     # recap_type_logement = get_dict_recap_type_logement()
-    print(5)
