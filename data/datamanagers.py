@@ -8,7 +8,7 @@ import pandas as pd
 
 # %%
 class ConsommationDataManager:
-    logements_loaded = {}
+    logements_loaded = {}  # todo : dont use {"df_conso"} and rename logements_dfs = {}
     conso_reseau_distribt_path = "conso_reseau_distriBT/"
 
     def __init__(self):
@@ -76,7 +76,7 @@ class ConsommationDataManager:
             raise FileNotFoundError(f"Directory {dirpath} not found")
 
         # get all csv files in dirpath (use glob)
-        csv_files = glob(dirpath + "*.csv")
+        csv_files = glob(f"{dirpath}*.csv")
         if len(csv_files) == 0:
             raise FileNotFoundError(f"No csv files found in {dirpath}")
 
@@ -99,7 +99,7 @@ class ConsommationDataManager:
     def load_all_dfs_conso(self) -> None:
         data_dir = "conso_reseau_distriBT/"
         # get all directories in data_dir
-        dirs = glob(data_dir + "*/")
+        dirs = glob(f"{data_dir}*/")
         if len(dirs) == 0:
             raise FileNotFoundError(f"No directories found in {data_dir}")
 
@@ -124,11 +124,11 @@ class ConsommationDataManager:
         if not self.is_logement_type_exists(logement_type):
             raise ValueError(f"Logement type {logement_type} not exists")
 
-        dfs_conso = {}
-        for logement_name in self.logements_names:
-            if logement_name.startswith(logement_type):
-                dfs_conso[logement_name] = self.get_df_conso_by_logement_name(logement_name)
-        return dfs_conso
+        return {
+            logement_name: self.get_df_conso_by_logement_name(logement_name)
+            for logement_name in self.logements_names
+            if logement_name.startswith(logement_type)
+        }
 
 
 def get_dict_equipements_infos(csv_path: str = "data équipement maison - caracteristiques.csv", start_header=1) -> dict:
@@ -162,6 +162,7 @@ def get_limite_de_puissance_par_mc(
     df = pd.read_csv(csv_path)
 
     return df.to_dict(orient="records")
+
 
 
 if __name__ == "__main__":
