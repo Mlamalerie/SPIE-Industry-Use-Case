@@ -2,8 +2,15 @@ import concurrent.futures
 import os
 from glob import glob
 from typing import Dict
-import matplotlib.pyplot as plt
+
 import pandas as pd
+
+
+# %%
+def get_dict_parents_enfants(csv_file="data lien reseau maison - parent et enfants.csv") -> dict:
+    df_parents_enfants = pd.read_csv(csv_file)
+    df_parents_enfants_group = df_parents_enfants.groupby("Parent")["Enfant"].apply(list)
+    return df_parents_enfants_group.to_dict()
 
 
 # %%
@@ -98,17 +105,17 @@ class ConsommationDataManager:
         self.load_dfs_conso_from_logements_dirpath(dirpath)
 
     def load_all_dfs_conso(self) -> None:
-        data_dir = "conso_reseau_distriBT/"
+
         # get all directories in data_dir
-        dirs = glob(f"{data_dir}*/")
+        dirs = glob(f"{self.conso_reseau_distribt_path}*/")
         if len(dirs) == 0:
-            raise FileNotFoundError(f"No directories found in {data_dir}")
+            raise FileNotFoundError(f"No directories found in {self.conso_reseau_distribt_path}")
 
         # load all directories
         print("Loading all...")
         for i, dirpath in enumerate(dirs):
             self.__display_loading_bar(i, len(dirs))
-            self.load_dfs_conso_from_dir(dirpath)
+            self.load_dfs_conso_from_logements_dirpath(dirpath)
         self.__display_loading_bar(i, len(dirs))
 
     def get_df_conso_by_logement_name(self, name: str) -> pd.DataFrame:
@@ -160,18 +167,29 @@ def get_df_table_equipements_par_logements(csv_path: str = "data équipement mai
     return df
 
 
-def get_limite_de_puissance_par_mc(
-        csv_path: str = "data équipement maison - limite de puissance par mc.csv") -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
+class LimitePuissanceManager():
+    csv_path: str = "data équipement maison - limite de puissance par mc.csv"
 
-    return df.to_dict(orient="records")
+    def __init__(self):
+        self.limites_puissance: list = self.get_limite_de_puissance_par_mc()
 
+    def get_limite_de_puissance_par_mc(self,
+                                       ) -> pd.DataFrame:
+        df = pd.read_csv(self.csv_path)
+
+        return df.to_dict(orient="records")
+
+    def get_limites(self, surface: float):
+        pass
 
 
 if __name__ == "__main__":
-    cdm = ConsommationDataManager()
-    print(cdm.get_df_conso_by_logement_name('A100-3-100'))
-    equipements = get_dict_equipements_infos()
-    #limites_puissance = get_limite_de_puissance_par_mc()
-    table_equipements_par_logements = get_df_table_equipements_par_logements()
-    recap_type_logement = get_dict_recap_type_logement()
+    lpm = LimitePuissanceManager()
+
+    # cdm = ConsommationDataManager()
+    # print(cdm.get_df_conso_by_logement_name('A100-3-100'))
+    # equipements = get_dict_equipements_infos()
+
+    # table_equipements_par_logements = get_df_table_equipements_par_logements()
+    # recap_type_logement = get_dict_recap_type_logement()
+    print(5)

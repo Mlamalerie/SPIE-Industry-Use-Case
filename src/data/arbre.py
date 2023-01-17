@@ -2,15 +2,9 @@ import re
 from random import randint
 
 import numpy as np
-import pandas as pd
 from bigtree import Node, print_tree, dict_to_tree
 
-
-# %%
-def get_dict_parents_enfants(csv_file="data lien reseau maison - parent et enfants.csv") -> dict:
-    df_parents_enfants = pd.read_csv(csv_file)
-    df_parents_enfants_group = df_parents_enfants.groupby("Parent")["Enfant"].apply(list)
-    return df_parents_enfants_group.to_dict()
+from datamanagers import get_dict_parents_enfants
 
 
 # %%
@@ -96,8 +90,6 @@ print("done")
 
 # %%
 
-
-# %%
 
 
 print("done")
