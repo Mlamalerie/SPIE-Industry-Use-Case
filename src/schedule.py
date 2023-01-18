@@ -5,7 +5,6 @@ from typing import List
 import numpy as np
 from bigtree import Node, print_tree, dict_to_tree, list_to_tree
 from bigtree import find_name as tree_find_name
-
 from src.data.datamanagers import get_dict_parents_enfants, EquipementsDataManager, LimitePuissanceDataManager
 
 
@@ -90,6 +89,9 @@ class Schedule:
             return self.cost
         else:
             return self.cost * self.decrease_for_constraint_violation
+
+    def get_consommation(self):
+        return self.consommation
 
     def get_parent_name(self):
         return self.parent_name
