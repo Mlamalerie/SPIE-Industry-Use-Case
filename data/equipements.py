@@ -25,9 +25,6 @@ class EquipementsDataManager:
     def get_index_equipement_by_name(self, equipement_name: str) -> int:
         return self.equipements_names.index(equipement_name)
 
-    def decode_hr_debut(self, hr_debut: str) -> int:
-        return int(hr_debut.split(":")[0])
-
     def load_caracteristiques(self) -> dict:
         df = pd.read_csv(self.caracteristiques_csv_path, header=0)
         df.set_index("Type", inplace=True)
@@ -39,9 +36,15 @@ class EquipementsDataManager:
         df.drop(columns=["Machine"], inplace=True)
         # On last row, replace N values with 0, and O values with 1
         df["Sequensable"] = df["Sequensable"].replace({"N": 0, "O": 1})
+
+        df["tps cycle"] = df["tps cycle"].astype(float)
+        df["Puissance"] = df["Puissance"].astype(float)
+        df["Amperage"] = df["Amperage"].astype(float)
+
         df["Hr debut"] = df["Hr debut"].replace(
             {"résultat de l'optimisation": -1, "à générer aléatoirement sur la plage HC": 1,
              "à générer 4 fois aléatoirement sur plage HC": 4})
+
         # lower column names, replace spaces with underscores
         df.columns = [col.lower().replace(" ", "_") for col in df.columns]
         # invert index and columns and return a dict

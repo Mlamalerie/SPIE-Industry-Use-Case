@@ -1,12 +1,10 @@
 from typing import List
 
-from data.datamanagers import EquipementsDataManager, LimitePuissanceDataManager
-from schedule import Schedule, Reseau
-
-HEURES_CREUSES = ("00:00", "07:00")
+from data.equipements import EquipementsDataManager
+from data.limites_puissance import LimitesPuissanceDataManager
+from optimization.schedule import Schedule, Reseau
 
 # %%
-
 
 s = Schedule("2", '5')
 print(s.get_cost())
@@ -18,7 +16,7 @@ def logement_name_2_surface(logement_name):
     return int(logement_name.split("_")[0][1:])
 
 
-def verify_schedule_constraint(schedule: Schedule, lpm: LimitePuissanceDataManager):
+def verify_schedule_constraint(schedule: Schedule, lpm: LimitesPuissanceDataManager):
     schedule.logement_name  # logement name
     surface = logement_name_2_surface(schedule.logement_name)  # todo : ? stoquer surface dan class
     kWa_limit = lpm.get_limit_power(surface)["kWa"]  # limite de puissance

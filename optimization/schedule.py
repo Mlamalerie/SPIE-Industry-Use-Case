@@ -3,44 +3,97 @@ import re
 from typing import List
 
 import numpy as np
+import pandas as pd
 from bigtree import Node, print_tree, dict_to_tree, list_to_tree
 from bigtree import find_name as tree_find_name
-from src.data.datamanagers import get_dict_parents_enfants, EquipementsDataManager, LimitePuissanceDataManager
+
+from data.equipements import EquipementsDataManager
+from data.limites_puissance import LimitesPuissanceDataManager
+from data.others import get_dict_parents_enfants
+
+HEURES_CREUSES = ("00:00", "07:00")
+HEURES_DEJEUNER = ("10:00", "12:00")
+HEURES_DINER = ("18:00", "20:00")
 
 
 # %%
 
-def put_values_on_vector(vector, value: float, how_many: int = 1, sequence: bool = False):
-    """Put several times, randomly, the same value in different index of a vector"""
+
+def hour_2_index(hour: str) -> int:
+    """Convert hour to index in vector"""
+    return int(hour.split(":")[0])
+
+
+def put_value_randomly_on_vector(vector, value: float, how_many: int = 1, index_range: tuple = None,
+                                 sequence: bool = False):
+    """Put several times, randomly, the same value in different index of a vector
+    :param vector: vector to modify
+    :param value: value to put in vector
+    :param how_many: how many times to put the value
+    :param index_range: range of index where to put the value [index_start, index_end]
+    """
+
     len_vector = len(vector)
-    how_many = min(how_many, len_vector)
-    if not sequence:
-        indexes = random.sample(range(len_vector), how_many)
+
+    indexes = None
+    if index_range is None:
+        index_range = (0, len_vector - 1)
+    elif max(index_range) >= len_vector or min(index_range) < 0:
+        raise ValueError(f"index_range {index_range} is out of range of vector {len_vector}")
+
+    if how_many == 1:
+        indexes = [random.randint(*index_range)]
+
+    elif index_range[0] < index_range[1]:
+
+        len_range = index_range[1] - index_range[0] + 1
+        how_many = min(how_many, len_range)
+        indexes_range_list = list(range(index_range[0], index_range[1] + 1))
+        if not sequence:
+            indexes = random.sample(indexes_range_list, how_many)
+        else:
+            index_choose = random.choice(indexes_range_list[:-how_many + 1])
+            j = indexes_range_list.index(index_choose)
+            indexes = indexes_range_list[j: j + how_many]
+            # indexes = [i % len_vector for i in indexes]
+    elif index_range[0] > index_range[1]:
+        # exemple : 23:00 -> 07:00 [23 -> 7]
+        len_range = index_range[1] - index_range[0] + len_vector + 1
+        how_many = min(how_many, len_range)
+        indexes_range_list = list(range(index_range[0], len_vector)) + list(range(0, index_range[1] + 1))
+        if not sequence:
+            indexes = random.sample(indexes_range_list, how_many)
+        else:
+            index_choose = random.choice(indexes_range_list[:-how_many + 1])
+            j = indexes_range_list.index(index_choose)
+            indexes = indexes_range_list[j: j + how_many]
     else:
-        i = random.randint(0, len_vector - 1)
-        indexes = list(range(i, i + how_many))
-        indexes = [i % len_vector for i in indexes]
+        indexes = [index_range[0]]
+
+    # print("index_range", index_range, indexes_range_list, "[:-how_many]", indexes_range_list[:-how_many + 1],
+    #      "len_range", len_range, "how_many", how_many)
+    # print("indexes", indexes)
 
     for i in indexes:
         vector[i] = value
     return vector
 
 
-# np zeros float
-z = np.zeros(10, dtype=float)
-put_values_on_vector(z, 1.2, 6, sequence=True)
+z = np.zeros(24)
+z = put_value_randomly_on_vector(z, -1, 1, index_range=(0, 5), sequence=True)
+z
 
 
 # %%
 class Schedule:
     eqm = EquipementsDataManager()
-    lpm = LimitePuissanceDataManager()
+    lpm = LimitesPuissanceDataManager()
 
     def __init__(self, logement_name, parent_name):
         self.logement_name = logement_name
         self.parent_name = parent_name
         self.logement_equipements: list = Schedule.eqm.get_equipements_by_logement_name(self.logement_name)
-        self.genome: np.array = np.zeros((len(Schedule.eqm.equipements_names), 24))
+        self.genome: np.array = np.zeros((len(Schedule.eqm.equipements_names), 24), dtype=float)
         self.init_random_genome()
         self.cost: float = 0.0
         self.consommation: float = 0.0
@@ -51,18 +104,31 @@ class Schedule:
 
     def init_random_genome(self):
         # for each equipement in the logement
-
         print("equipements_list", self.logement_equipements)
         for logement_equipement_name in self.logement_equipements:
             index_genome_matrix = Schedule.eqm.get_index_equipement_by_name(logement_equipement_name)
             # get caracteristics of equipement
+
             if caracteristiques := Schedule.eqm.caracteristiques_equipements.get(logement_equipement_name):
                 t_cycle = caracteristiques.get("tps_cycle")
+                t_cycle = t_cycle if t_cycle > 1 else 1  # d'après jenna
+                puissance = caracteristiques.get("puissance")
                 sequensable = caracteristiques.get("sequensable")
-                how_many = random.randint(1, self.genome.shape[1])
-                print(logement_equipement_name, "how_many", how_many, "t_cycle", t_cycle, "sequensable", sequensable)
-                put_values_on_vector(self.genome[index_genome_matrix], value=t_cycle,
-                                     how_many=how_many, sequence=sequensable)
+
+                hr_debut = caracteristiques.get("hr_debut")
+
+                how_many_to_put = t_cycle
+                value_to_put = round(puissance / t_cycle, 1)
+                horaire_range = None
+                if hr_debut > 0:
+                    how_many_to_put = hr_debut
+                    horaire_range = (hour_2_index(HEURES_CREUSES[0]), hour_2_index(HEURES_CREUSES[1]))
+
+                self.genome[index_genome_matrix] = put_value_randomly_on_vector(self.genome[index_genome_matrix],
+                                                                                value=value_to_put,
+                                                                                how_many=how_many_to_put,
+                                                                                index_range=horaire_range,
+                                                                                sequence=sequensable)
             else:
                 raise ValueError(f"caracteristiques not found for equipement {logement_equipement_name}")
 
@@ -104,8 +170,17 @@ class Schedule:
             print("*")
 
 
-s = Schedule("A100-3-100", "PL1111")
-s.is_respect_constraint()
+def vizualise_schedule(schedule: Schedule):
+    hours_str = [f"{i:02d}:00" for i in range(24)]
+    # to pandas
+    df = pd.DataFrame(schedule.genome, columns=hours_str, index=Schedule.eqm.equipements_names)
+    return df
+
+
+logements = list(Schedule.eqm.equipements_list_par_logements.keys())
+s = Schedule(logements[0], "PL1111")
+ss = Schedule(logements[1], "PL1111")
+ss.is_respect_constraint()
 print("done")
 
 
