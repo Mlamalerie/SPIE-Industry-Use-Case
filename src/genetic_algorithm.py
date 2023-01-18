@@ -1,7 +1,7 @@
 from typing import List
 
-from src.data.datamanagers import EquipementsDataManager, LimitePuissanceDataManager
-from src.optimization.modeles import Schedule, Reseau
+from data.datamanagers import EquipementsDataManager, LimitePuissanceDataManager
+from schedule import Schedule, Reseau
 
 HEURES_CREUSES = ("00:00", "07:00")
 
