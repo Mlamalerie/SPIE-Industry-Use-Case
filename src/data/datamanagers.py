@@ -153,10 +153,10 @@ class ConsommationDataManager:
 
 
 class EquipementsDataManager:
-    caracteristiques_csv_path: str = "data équipement maison - caracteristiques.csv"
-    equipements_par_logements_csv_path: str = "data équipement maison - table.csv"
+    caracteristiques_csv_path: str = f"{os.path.dirname(__file__)}/data équipement maison - caracteristiques.csv"
+    equipements_par_logements_csv_path: str = f"{os.path.dirname(__file__)}/data équipement maison - table.csv"
 
-    def __init__(self):
+    def __init__(self, loading=True):
         # verify if caracteristiques_csv_path exists
         if not os.path.exists(self.caracteristiques_csv_path):
             raise FileNotFoundError(f"File {self.caracteristiques_csv_path} not found")
@@ -166,17 +166,36 @@ class EquipementsDataManager:
 
         self.caracteristiques_equipements: dict = None
         self.equipements_list_par_logements: dict = None
-        self.load_caracteristiques()
-        self.load_equipements_list_par_logement()
+        self.equipements_names = []
+        if loading:
+            self.load_caracteristiques()
+            self.load_equipements_list_par_logement()
 
-    def load_caracteristiques(self, start_header=1) -> dict:
-        df = pd.read_csv(self.caracteristiques_csv_path, header=start_header)
-        df = df.set_index("Machine" if start_header == 1 else "Type")
+    def get_index_equipement_by_name(self, equipement_name: str) -> int:
+        return self.equipements_names.index(equipement_name)
+
+    def decode_hr_debut(self, hr_debut: str) -> int:
+        return int(hr_debut.split(":")[0])
+
+    def load_caracteristiques(self) -> dict:
+        df = pd.read_csv(self.caracteristiques_csv_path, header=0)
+        df.set_index("Type", inplace=True)
         df = df.T
+
+        # concat inex 'Type' and column 'Machine' to 'Type-Machine'
+        df["Type-Machine"] = df.index + "-" + df["Machine"]
+        df.set_index("Type-Machine", inplace=True, drop=True)
+        df.drop(columns=["Machine"], inplace=True)
         # On last row, replace N values with 0, and O values with 1
         df["Sequensable"] = df["Sequensable"].replace({"N": 0, "O": 1})
+        df["Hr debut"] = df["Hr debut"].replace(
+            {"résultat de l'optimisation": -1, "à générer aléatoirement sur la plage HC": 1,
+             "à générer 4 fois aléatoirement sur plage HC": 4})
+        # lower column names, replace spaces with underscores
+        df.columns = [col.lower().replace(" ", "_") for col in df.columns]
         # invert index and columns and return a dict
         self.caracteristiques_equipements = df.to_dict(orient="index")
+        self.equipements_names = list(self.caracteristiques_equipements.keys())
 
     def get_caracteristiques(self) -> dict:
         if self.caracteristiques_equipements is None:
@@ -185,7 +204,8 @@ class EquipementsDataManager:
 
     def get_df_equipements_par_logements(self, keep_logement_type_col=False) -> pd.DataFrame:
         df = pd.read_csv(self.equipements_par_logements_csv_path)
-        df.columns = ["logement_name", "logement_type"] + list(self.caracteristiques_equipements.keys())
+        df.columns = ["logement_name",
+                      "logement_type"] + self.equipements_names  # /!\ depend du fichier caracteriques equioements
         if not keep_logement_type_col:
             df = df.drop(columns=["logement_type"])
         df.set_index("logement_name", inplace=True)
@@ -199,6 +219,14 @@ class EquipementsDataManager:
             equipements_list[logement_name] = equipements[equipements == 1].index.tolist()
         self.equipements_list_par_logements = equipements_list
 
+    def get_equipements_by_logement_name(self, logement_name) -> list:
+        if self.equipements_list_par_logements is None:
+            self.load_equipements_list_par_logement()
+        equipements = self.equipements_list_par_logements.get(logement_name)
+        if equipements is None:
+            raise KeyError(f"Logement {logement_name} not found in equipements_list_par_logements")
+        return equipements
+
 
 def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv") -> dict:
     df = pd.read_csv(csv_path)
@@ -206,17 +234,16 @@ def get_dict_recap_type_logement(csv_path: str = "data recap type logement.csv")
 
 
 class LimitePuissanceDataManager():
-    csv_path: str = "data équipement maison - limite de puissance par mc.csv"
+    csv_path: str = f"{os.path.dirname(__file__)}/data équipement maison - limite de puissance par mc.csv"
 
     def __init__(self):
-        self.limites_puissance: list = self.get_limites_de_puissance_par_mc()
+        self.limites_puissance: list = self.__get_limites_de_puissance_par_mc()
 
-    def get_limites_de_puissance_par_mc(self) -> pd.DataFrame:
+    def __get_limites_de_puissance_par_mc(self) -> pd.DataFrame:
         df = pd.read_csv(self.csv_path)
-
         return df.to_dict(orient="records")
 
-    def get_limites_from(self, surface: float):
+    def get_limites(self, surface: float) -> dict:
         if surface < 0:
             raise ValueError("Surface must be positive")
 

@@ -1,3 +1,4 @@
+import random
 import re
 from typing import List
 
@@ -5,8 +6,105 @@ import numpy as np
 from bigtree import Node, print_tree, dict_to_tree, list_to_tree
 from bigtree import find_name as tree_find_name
 
-from src.data.datamanagers import get_dict_parents_enfants
-from src.optimization.genetic_algorithm import Schedule
+from src.data.datamanagers import get_dict_parents_enfants, EquipementsDataManager, LimitePuissanceDataManager
+
+
+# %%
+
+def put_values_on_vector(vector, value: float, how_many: int = 1, sequence: bool = False):
+    """Put several times, randomly, the same value in different index of a vector"""
+    len_vector = len(vector)
+    how_many = min(how_many, len_vector)
+    if not sequence:
+        indexes = random.sample(range(len_vector), how_many)
+    else:
+        i = random.randint(0, len_vector - 1)
+        indexes = list(range(i, i + how_many))
+        indexes = [i % len_vector for i in indexes]
+
+    for i in indexes:
+        vector[i] = value
+    return vector
+
+
+# np zeros float
+z = np.zeros(10, dtype=float)
+put_values_on_vector(z, 1.2, 6, sequence=True)
+
+
+# %%
+class Schedule:
+    eqm = EquipementsDataManager()
+    lpm = LimitePuissanceDataManager()
+
+    def __init__(self, logement_name, parent_name):
+        self.logement_name = logement_name
+        self.parent_name = parent_name
+        self.logement_equipements: list = Schedule.eqm.get_equipements_by_logement_name(self.logement_name)
+        self.genome: np.array = np.zeros((len(Schedule.eqm.equipements_names), 24))
+        self.init_random_genome()
+        self.cost: float = 0.0
+        self.consommation: float = 0.0
+        self.evaluate_consommation()
+
+        # self.mutation_rate = 0.1  # 10% chance of mutation
+        # self.decrease_for_constraint_violation = 0.25  # 25% decrease in cost if constraint is violated
+
+    def init_random_genome(self):
+        # for each equipement in the logement
+
+        print("equipements_list", self.logement_equipements)
+        for logement_equipement_name in self.logement_equipements:
+            index_genome_matrix = Schedule.eqm.get_index_equipement_by_name(logement_equipement_name)
+            # get caracteristics of equipement
+            if caracteristiques := Schedule.eqm.caracteristiques_equipements.get(logement_equipement_name):
+                t_cycle = caracteristiques.get("tps_cycle")
+                sequensable = caracteristiques.get("sequensable")
+                how_many = random.randint(1, self.genome.shape[1])
+                print(logement_equipement_name, "how_many", how_many, "t_cycle", t_cycle, "sequensable", sequensable)
+                put_values_on_vector(self.genome[index_genome_matrix], value=t_cycle,
+                                     how_many=how_many, sequence=sequensable)
+            else:
+                raise ValueError(f"caracteristiques not found for equipement {logement_equipement_name}")
+
+    def is_respect_constraint(self):
+        Schedule.lpm.get_limites(self.get_surface())["kVA"]  # KW, or kVA
+
+        for logement_equipement_name in self.logement_equipements:
+            index_genome_matrix = Schedule.eqm.get_index_equipement_by_name(logement_equipement_name)
+
+            # sum column
+
+            return True
+
+    def get_surface(self) -> int:
+        return int(self.logement_name.split("-")[0][1:])
+
+    def evaluate_consommation(self):
+        sum_matrix = np.sum(self.genome, axis=1)  # array avec sommes des temps
+        print("1")
+
+    def get_cost(self):
+        cost = 0.0
+        if self.is_respect_constraint():
+            return self.cost
+        else:
+            return self.cost * self.decrease_for_constraint_violation
+
+    def get_parent_name(self):
+        return self.parent_name
+
+    def get_logement_name(self):
+        return self.logement_name
+
+    def mutate(self):
+        if random.random() < self.mutation_rate:
+            print("*")
+
+
+s = Schedule("A100-3-100", "PL1111")
+s.is_respect_constraint()
+print("done")
 
 
 # %%
@@ -118,12 +216,13 @@ class Reseau():
         print("-" * 50)
 
 
-parents_enfants = get_dict_parents_enfants(2, 5)
-example_schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
-reseau = Reseau(schedules=example_schedules)
+if __name__ == "__main__":
+    reseau = Reseau()
+    reseau.print()
+    parents_enfants = get_dict_parents_enfants(2, 5)
+    example_schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
+    reseau = Reseau(schedules=example_schedules)
 
-reseau.print()
+    reseau.print()
 
-print("done")
-
-print("#")
+    print("done")
