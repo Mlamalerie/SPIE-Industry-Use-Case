@@ -9,7 +9,7 @@ from bigtree import find_name as tree_find_name
 
 from data.equipements import EquipementsDataManager
 from data.limites_puissance import LimitesPuissanceDataManager
-from data.reseau_maisons import get_dict_parents_enfants
+from data.relation_reseau_maisons import get_dict_parents_enfants
 
 HEURES_CREUSES = ("20:00", "06:00")
 HEURES_DEJEUNER = ("11:00", "13:00")
@@ -96,7 +96,6 @@ class Schedule:
         self.consommation: float = 0.0
         self.evaluate_consommation()
 
-        self.mutation_rate = 0.1  # 10% chance of mutation
         # self.decrease_for_constraint_violation = 0.25  # 25% decrease in cost if constraint is violated
 
     def init_random_genome(self):
@@ -173,9 +172,8 @@ class Schedule:
     def get_logement_name(self):
         return self.logement_name
 
-    def mutate(self):
-        if random.random() < self.mutation_rate:
-            print("*")
+    def mutate(self):  # todo : add mutation
+        print("mutate", self.logement_name)
 
 
 def vizualise_schedule(schedule: Schedule):
@@ -211,21 +209,17 @@ def get_all_ancestors(pl_id: str, sort_desc=True) -> list:
 
 # print(get_all_ancestors("PL122"))
 
-
 # %%
 
 class Reseau():
-    def __init__(self, schedules: List[Schedule]):
-        self.schedules = schedules
+    def __init__(self, schedules: List[Schedule]):  # todo,
 
         self.tree = None
-        self.global_cost: float = 0.0
-        # self.base_leaves_paths_list = None
-        self.base_leaves_paths_dict = None
+        self.global_cost: float = None
+        self.base_leaves_paths_dict: dict = None
+        self.leaves_parents_names = []
 
-        # self.parents_enfants = get_dict_parents_enfants(limit_parents=limit_parents,
-        #                                                limit_child_per_parent=limit_child_per_parent)
-        self.construct_tree()
+        self.construct_tree(schedules)
         self.load_global_cost()
 
     def logement_name_to_node_name(self, parent_name, logement_name: str) -> str:
@@ -233,17 +227,20 @@ class Reseau():
             get_all_ancestors(parent_name) + [f"{parent_name}/{logement_name}"]
         )
 
-    def sum_leafs(self, node: Node) -> float:
+    def sum_leaves(self, node: Node, what="cost") -> float:
         if node.is_leaf:
-            return node.schedule.cost
+            return node.schedule.cost if what == "cost" else node.schedule.consommation
         else:
-            return sum(self.sum_leafs(child) for child in node.children)
+            return sum(self.sum_leaves(child) for child in node.children)
 
     def load_global_cost(self) -> None:
-        self.global_cost = self.sum_leafs(self.tree)
+        self.global_cost = self.sum_leaves(self.tree, "cost")
 
     def get_global_cost(self) -> float:
         return self.global_cost
+
+    def get_global_consommation(self) -> float:
+        return self.sum_leaves(self.tree, "consommation")
 
     def __lt__(self, other):
         return self.global_cost < other.global_cost
@@ -252,48 +249,50 @@ class Reseau():
         node = tree_find_name(self.tree, parent_name)
         if node is None:
             raise ValueError(f"Parent {parent_name} not found")
-        return self.sum_leafs(node)
+        return self.sum_leaves(node, "cost")
 
-    def get_basic_stats_leafs_cost(self) -> float:
+    def get_basic_stats_leaves_cost(self) -> float:
         costs = np.array([leaf.schedule.cost for leaf in self.tree.leaves])
         return np.mean(costs), np.std(costs), np.min(costs), np.max(costs)
 
-    def construct_tree(self, verbose=False):
+    def construct_tree(self, schedules: List[Schedule], verbose=False):
 
         # self.path_dict = {k: {"cost": round(random(), 1)} for k in result}  # todo
-        if len(self.schedules) == 0:
-            raise ValueError("No schedules in Reseau")
+        if len(schedules) == 0:
+            raise ValueError("No schedules provided")
 
         self.base_leaves_paths_dict = {}
+        self.leaves_parents_names = []
         # for each schedule
-        for schedule in self.schedules:
+        for schedule in schedules:
+            self.leaves_parents_names.append(schedule.get_parent_name())
             leaf_path = self.logement_name_to_node_name(schedule.parent_name, schedule.logement_name)
-            self.base_leaves_paths_dict[leaf_path] = {"schedule": schedule}
+            self.base_leaves_paths_dict[leaf_path] = {"schedule": schedule,
+                                                      "consommation": round(schedule.consommation, 1)}
 
         self.tree = dict_to_tree(self.base_leaves_paths_dict)
+        self.n_leaves = len(list(self.tree.leaves))
 
-        # bring up cost to parents
-        # for node in self.tree.traverse("postorder"):
         if verbose:
             print("tree construction done.")
 
-    def print(self, display_stats=True):
+    def print(self, display_stats=True, attr_list=["consommation"]):
         if self.tree is None:
             raise ValueError("Tree is not constructed yet")
 
-        if display_stats and self.schedules:
+        if display_stats and self.tree:
             self._print_stats()
-        print_tree(self.tree, attr_list=["cost"])
+        print_tree(self.tree, attr_list=attr_list)
         print("-" * 50)
 
     # TODO Rename this here and in `print`
     def _print_stats(self):
         n_leaves = len(list(self.tree.leaves))
-        conso = self.get_global_cost()
+        cost = self.get_global_cost()
         print("-" * 1, "GLOBAL STATS", "-" * 35)
-        print("* Cost accumulés:", conso, "\n")
-        print("-" * 1, f"LEAFS STATS ({n_leaves} logements)", "-" * 22)
-        mean_, std_, min_, max_ = self.get_basic_stats_leafs_cost()
+        print("* Cost accumulés:", cost, "\n")
+        print("-" * 1, f"LEAVES STATS ({n_leaves} logements)", "-" * 22)
+        mean_, std_, min_, max_ = self.get_basic_stats_leaves_cost()
         print("* Cost moyenne:", mean_)
         print("* Cost std:", round(std_))
         print("* Cost min:", min_)
@@ -303,18 +302,81 @@ class Reseau():
     def get_schedule_by_leaf_path(self, leaf_path: str) -> Schedule:
         return self.base_leaves_paths_dict[leaf_path]["schedule"]
 
-    def set_schedules(self, schedules: List[Schedule]):
-        self.schedules = schedules
-        self.construct_tree()
+    def get_leaves_list(self) -> list:
+        return list(self.tree.leaves)
 
-    def get_schedules(self) -> List[Schedule]:
-        return self.schedules
+    def get_leaves_schedules_by_node_parent(self, parent_name: str) -> List[Schedule]:
+        node = tree_find_name(self.tree, parent_name)
+        if node is None:
+            raise ValueError(f"Parent {parent_name} not found")
+        return [leaf.schedule for leaf in node.leaves]
+
+    def get_leaves_schedules(self) -> List[Schedule]:
+        return self.get_leaves_schedules_by_node_parent("PS")
+
+    def _mutate_leaves(self, limit_leaves_mutations: int = None) -> list:
+        if limit_leaves_mutations is None:
+            limit_leaves_mutations = self.n_leaves
+        limit_leaves_mutations = min(limit_leaves_mutations, self.n_leaves)
+        n_mutations = random.randint(1, limit_leaves_mutations)
+        # generate random indexes to mutate
+        indexes = np.random.choice(self.n_leaves, n_mutations, replace=False)
+
+        new_schedules = []
+        for ix, leaf in enumerate(self.tree.leaves):
+            # get schedule
+            schedule = leaf.schedule
+            # mutate
+            if ix in indexes:
+                schedule.mutate()
+            new_schedules.append(schedule)
+
+        self.construct_tree(new_schedules)
+        return new_schedules
+
+    def _mutate_leaves_and_sibling(self, n_leaves_to_focus: int, limit_leaves_mutations: int) -> None:
+        if limit_leaves_mutations is None:
+            limit_leaves_mutations = self.n_leaves
+
+        limit_leaves_mutations = min(limit_leaves_mutations, self.n_leaves)
+
+        pass
+        for _ in range(n_leaves_to_focus):
+            # get random leaf
+            leaf = random.choice(self.get_leaves_list())
+            # get siblings
+            siblings = leaf.siblings
+            # mutate all siblings
+            for sibling in siblings:
+                sibling.schedule.mutate()
+
+        self.construct_tree([leaf.schedule for leaf in self.tree.leaves])
+
+    def mutate(self, mode: list = ["leaves", "siblings"], n_leaves_mutations=1, n_leaves_focus=1) -> None:
+        # Mutation de leaves : Cette méthode consiste à sélectionner au hasard un nœud de l'arbre et à le remplacer par un nœud aléatoire ou un nœud produit par une fonction de création de nœuds.
+
+        if "leaves" in mode:
+            self._mutate_leaves(n_mutations=n_leaves_mutations)
+        if "siblings" in mode:
+            self._mutate_leaves_and_sibling(n_leaves_to_focus=n_leaves_focus, limit_leaves_mutations=n_leaves_mutations)
+
+
+def init_indivual(parents_enfants: dict) -> Reseau:
+    schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
+    return Reseau(schedules=schedules)
 
 
 if __name__ == "__main__":
     # reseau = Reseau()
     # reseau.print()
-    parents_enfants = get_dict_parents_enfants(2, 5)
+    rel_parents_enfants_maisons = get_dict_parents_enfants(limit_parents=8, limit_child_per_parent=3)
+    example_schedules_load = [Schedule(logement, p) for p, logements in rel_parents_enfants_maisons.items() for logement
+                              in
+                              logements]
+
+    arezo = init_indivual(rel_parents_enfants_maisons)
+    arezo.print()
+
     # example_schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
     # reseau = Reseau(schedules=example_schedules)
 
