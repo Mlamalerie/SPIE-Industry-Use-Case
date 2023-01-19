@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 
 
@@ -15,11 +16,35 @@ class EquipementsDataManager:
         if not os.path.exists(self.equipements_par_logements_csv_path):
             raise FileNotFoundError(f"File {self.equipements_par_logements_csv_path} not found")
 
-        self.caracteristiques_equipements: dict = None
         self.equipements_list_par_logements: dict = None
         self.equipements_names = []
+        self.caracteristiques_equipements: dict = {
+            'Md1-LV': {'puissance': 1.3, 'tps_cycle': 1.0, 'amperage': 6.0, 'hr_debut': -1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Md2-LL': {'puissance': 2.0, 'tps_cycle': 1.0, 'amperage': 9.0, 'hr_debut': -1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Md3-SL': {'puissance': 1.0, 'tps_cycle': 4.0, 'amperage': 4.0, 'hr_debut': -1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Md4-TV': {'puissance': 0.1, 'tps_cycle': np.nan, 'amperage': 0.5, 'hr_debut': 1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Mc1-FG': {'puissance': 0.1, 'tps_cycle': 0.2, 'amperage': 0.5, 'hr_debut': 4, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Mc2-CE': {'puissance': 2.2, 'tps_cycle': 6.0, 'amperage': 10.0, 'hr_debut': 1, 'hr_max': np.nan,
+                       'sequensable': 1},
+            'Mc3-CG': {'puissance': 0.1, 'tps_cycle': 0.2, 'amperage': 0.5, 'hr_debut': 4, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Md5-FO': {'puissance': 1.6, 'tps_cycle': np.nan, 'amperage': 12.0, 'hr_debut': 1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Md6-PL': {'puissance': 1.2, 'tps_cycle': np.nan, 'amperage': 20.0, 'hr_debut': 1, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Mc4-FG': {'puissance': 0.3, 'tps_cycle': 0.2, 'amperage': 3.0, 'hr_debut': 4, 'hr_max': np.nan,
+                       'sequensable': 0},
+            'Mc5-CE': {'puissance': 3.0, 'tps_cycle': 6.0, 'amperage': 15.0, 'hr_debut': 1, 'hr_max': np.nan,
+                       'sequensable': 1}
+        }
+        self.equipements_names = list(self.caracteristiques_equipements.keys())
         if loading:
-            self.load_caracteristiques()
+            # self.load_caracteristiques()
             self.load_equipements_list_par_logement()
 
     def get_index_equipement_by_name(self, equipement_name: str) -> int:
@@ -49,7 +74,7 @@ class EquipementsDataManager:
         df.columns = [col.lower().replace(" ", "_") for col in df.columns]
         # invert index and columns and return a dict
         self.caracteristiques_equipements = df.to_dict(orient="index")
-        self.equipements_names = list(self.caracteristiques_equipements.keys())
+
 
     def get_caracteristiques(self) -> dict:
         if self.caracteristiques_equipements is None:

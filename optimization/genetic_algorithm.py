@@ -1,7 +1,7 @@
+import random
 from typing import List
 
 from data.equipements import EquipementsDataManager
-from data.limites_puissance import LimitesPuissanceDataManager
 from optimization.schedule import Schedule, Reseau
 
 # %%
@@ -12,19 +12,6 @@ print(s.get_cost())
 
 # %%
 
-def logement_name_2_surface(logement_name):
-    return int(logement_name.split("_")[0][1:])
-
-
-def verify_schedule_constraint(schedule: Schedule, lpm: LimitesPuissanceDataManager):
-    schedule.logement_name  # logement name
-    surface = logement_name_2_surface(schedule.logement_name)  # todo : ? stoquer surface dan class
-    kWa_limit = lpm.get_limit_power(surface)["kWa"]  # limite de puissance
-    cost = schedule.get_cost()
-    if cost > kWa_limit:
-        return False, cost - kWa_limit
-
-    return True, 0
 
 
 # %%
@@ -38,8 +25,14 @@ def init_solution(parents_enfants: dict) -> Reseau:
     pass
 
 
-def verify_solution_respect_constraint(solution: Reseau):
-    pass
+def sample(candidates, k, weights):
+    result = []
+    while len(result) < k:
+        choosen = random.choices(candidates, weights=weights)[0]
+        if choosen not in result:
+            result.append(choosen)
+
+    return result
 
 
 def crossover(solution1: Reseau, solution2: Reseau) -> List[Reseau]:
@@ -50,9 +43,6 @@ def mutation(solution: Reseau) -> Reseau:
     pass
 
 
-def selection(population: List[Reseau], pct_retain: float = 0.2) -> List[Reseau]:
-    # crerr 2 mode de selection : on garde les pct_retain meilleurs, et on choisie les autres au hasard pondére par le fotness
-    pass
 
 
 def evolve(population: List[Reseau], ):

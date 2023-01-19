@@ -18,8 +18,9 @@ def get_dict_parents_enfants(limit_parents: int = None, limit_child_per_parent: 
 
 
 # %%
-
+"""
 def get_dict_recap_type_logement() -> dict:
     csv_path: str = f"{os.path.dirname(__file__)}/data recap type logement.csv"
     df = pd.read_csv(csv_path)
     return df.to_dict(orient="index")
+"""
