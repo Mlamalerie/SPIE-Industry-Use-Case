@@ -3,6 +3,7 @@ import os
 from glob import glob
 from typing import Dict
 
+import numpy as np
 import pandas as pd
 
 
@@ -11,10 +12,14 @@ class ConsommationDataManager:
     conso_reseau_distribt_path = f"{os.path.dirname(__file__)}/conso_reseau_distriBT/"
 
     def __init__(self, processing_neg_values="abs"):
+        """
+        :param processing_neg_values: "abs" (absolute value), "clip" (clip to 0), None (keep neg values), "nan" (set to NaN)
+        """
         self.logements_names = []
         self.load_logements_names()
         self.logements_types = []
         self.load_logements_types()
+        self.processing_neg_values = processing_neg_values
 
     def is_logement_loaded(self, logement_name: str) -> bool:
         return logement_name in self.df_logements_loaded
@@ -70,8 +75,11 @@ class ConsommationDataManager:
         # processing neg values
         if self.processing_neg_values == "abs":
             df = df.abs()
-        else:
+        elif self.processing_neg_values == "clip":
             df = df.clip(lower=0)  # todo delete neg values
+        elif self.processing_neg_values == "nan":
+            # delete neg values (set to NaN)
+            df = df.where(df > 0, np.nan)
 
         logement_name = self.get_logement_name_from_csv_file(csv_filepath)
         self.df_logements_loaded[logement_name] = df
@@ -134,3 +142,11 @@ class ConsommationDataManager:
             for logement_name in self.logements_names
             if logement_name.startswith(logement_type)
         }
+
+
+if __name__ == "__main__":
+    # create fake dataframe with neg values (2 columns)
+    df = pd.DataFrame({"A": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "B": [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10]})
+    print(df)
+
+    print(df)
