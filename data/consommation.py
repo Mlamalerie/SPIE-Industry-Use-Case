@@ -10,11 +10,12 @@ class ConsommationDataManager:
     df_logements_loaded = {}
     conso_reseau_distribt_path = f"{os.path.dirname(__file__)}/conso_reseau_distriBT/"
 
-    def __init__(self, processing_neg_values="abs"):
+    def __init__(self, processing_neg_values = "abs"):
         self.logements_names = []
         self.load_logements_names()
         self.logements_types = []
         self.load_logements_types()
+        self.processing_neg_values = processing_neg_values
 
     def is_logement_loaded(self, logement_name: str) -> bool:
         return logement_name in self.df_logements_loaded
@@ -71,7 +72,7 @@ class ConsommationDataManager:
         if self.processing_neg_values == "abs":
             df = df.abs()
         else:
-            df = df.clip(lower=0)  # todo delete neg values
+            df = df.clip(lower = 0)  # todo delete neg values
 
         logement_name = self.get_logement_name_from_csv_file(csv_filepath)
         self.df_logements_loaded[logement_name] = df
