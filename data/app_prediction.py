@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from prediction.prediction import *
+from prediction import time_series, total_prediction_hw, time_predictions_hw
 
 st.title("Prediction")
 
@@ -12,17 +12,11 @@ options = pd.DataFrame({
     'Surface': [15, 25, 30, 50, 65, 80, 85, 100, 110, 120, 130, 135, 140, 150, 160, 200],
     'Habitants': [1, 2, 3, 4, 5, 6]})
 
-option_type = st.selectbox(
-    'Quel est votre type de logement ?',
-    df['Type'])
+option_type = st.selectbox('Quel est votre type de logement ?', options['Type'])
 
-option_surface = st.selectbox(
-    'Quelle est la surface de votre logement (en m²) ?',
-    df['Surface'])
+option_surface = st.selectbox('Quelle est la surface de votre logement (en m²) ?', options['Surface'])
 
-option_habitants = st.selectbox(
-    "Combien d'habitants résident dans votre logement ?",
-    df['Habitants'])
+option_habitants = st.selectbox("Combien d'habitants résident dans votre logement ?", options['Habitants'])
 
 number = st.number_input("Insérez l'id de votre logement", min_value = 1)
 
