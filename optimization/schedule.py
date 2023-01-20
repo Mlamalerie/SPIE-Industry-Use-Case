@@ -120,7 +120,6 @@ class Schedule:
         self.consommation: float = 0.0
         self.init_random_genome()
 
-
         # self.decrease_for_constraint_violation = 0.25  # 25% decrease in cost if constraint is violated
 
     def init_random_genome(self):
@@ -191,7 +190,7 @@ class Schedule:
     def get_cost(self):
         cost = self.consommation
         ok, nb_violation = self.is_respect_limite_puissance_constraint()
-        cost *= (nb_violation + 1) if not ok else 1
+        cost *= 1 if ok else nb_violation + 1
         return cost
         # todo : pénaliser si respect pas plage horaires creuses
         # todo : prendre en compte consommeation TV
@@ -223,12 +222,13 @@ class Schedule:
         self.genome = genome
         self.evaluate_consommation()
 
-
-def vizualise_schedule(schedule: Schedule):
-    hours_str = [f"{i:02d}:00" for i in range(24)]
-    # to pandas
-    df = pd.DataFrame(schedule.genome, columns=hours_str, index=Schedule.eqm.equipements_names)
-    return df
+    def to_df(self):
+        hours_str = [f"{i:02d}:00" for i in range(24)]
+        return pd.DataFrame(
+            self.genome,
+            columns=hours_str,
+            index=Schedule.eqm.equipements_names,
+        )
 
 
 # logements = list(Schedule.eqm.equipements_list_par_logements.keys())
@@ -279,7 +279,7 @@ class Reseau():
         if node.is_leaf:
             return node.schedule.get_cost() if what == "cost" else node.schedule.get_consommation()
         else:
-            return sum([self.sum_leaves(child) for child in node.children])
+            return sum(self.sum_leaves(child) for child in node.children)
 
     def load_global_cost(self) -> None:
         self.global_cost = self.sum_leaves(self.tree, "cost")
@@ -299,6 +299,12 @@ class Reseau():
             raise ValueError(f"Parent {parent_name} not found")
         return self.sum_leaves(node, "cost")
 
+    def get_leaf_schedule_by_name(self, logement_name):
+        leaf = tree_find_name(self.tree, logement_name)
+        if leaf is None:
+            raise ValueError(f"Leaf {logement_name} not found")
+        return leaf.schedule
+
     def get_basic_stats_leaves_cost(self):
         costs = np.array([leaf.schedule.get_cost() for leaf in self.tree.leaves])
         return np.mean(costs), np.std(costs), np.min(costs), np.max(costs)
@@ -310,7 +316,7 @@ class Reseau():
     def construct_tree(self, schedules: List[Schedule], verbose=False):
 
         # self.path_dict = {k: {"cost": round(random(), 1)} for k in result}  # todo
-        if len(schedules) == 0:
+        if not schedules:
             raise ValueError("No schedules provided")
 
         self.base_leaves_paths_dict = {}
@@ -328,36 +334,38 @@ class Reseau():
         if verbose:
             print("tree construction done.")
 
-    def print(self, display_stats=True, display_tree=True, attr_list=["consommation"]):
+    def print(self, display_stats=True, display_tree=True, attr_list=None, f_print=print):
+        if attr_list is None:
+            attr_list = ["consommation"]
         if self.tree is None:
             raise ValueError("Tree is not constructed yet")
 
-        print(f"id : {id(self)}")
+        f_print(f"id : {id(self)}")
         if display_stats and self.tree:
-            self._print_stats()
+            self._print_stats(f_print=f_print)
 
         if display_tree:
             print_tree(self.tree, attr_list=attr_list, max_depth=5 if self.n_leaves > 100 else None)
-        print("-" * 50)
+        f_print("-" * 50)
 
     # TODO Rename this here and in `print`
-    def _print_stats(self):
+    def _print_stats(self, f_print=print):
         n_leaves = len(list(self.tree.leaves))
 
-        print("-" * 1, "GLOBAL STATS", "-" * 35)
-        print("* Consommation global du réseau:", round(self.get_global_consommation(), 1), "KWh")
-        print("* 'Cost':", round(self.get_global_cost(), 1))
+        f_print("-" * 1, "GLOBAL STATS", "-" * 35)
+        f_print("* Consommation global du réseau:", round(self.get_global_consommation(), 1), "KWh")
+        f_print("* 'Cost':", round(self.get_global_cost(), 1))
 
         respects = [s.is_respect_limite_puissance_constraint()[0] for s in self.get_leaves_schedules()]
-        print(f"* % Plannings avec les contraintes de puissances respectés: {np.sum(respects) / len(respects):.2%}",
-              "\n")
+        f_print(f"* % Plannings avec les contraintes de puissances respectés: {np.sum(respects) / len(respects):.2%}",
+                "\n")
 
-        print("-" * 1, f"LEAVES STATS ({n_leaves} maisons)", "-" * 22)
+        f_print("-" * 1, f"LEAVES STATS ({n_leaves} maisons)", "-" * 22)
         mean_consommation, std_consommation, min_consommation, max_consommation = self.get_basic_stats_leaves_consommation()
-        print(
+        f_print(
             f"* consommation: {mean_consommation:.2f} +- {std_consommation:.2f} (min: {min_consommation:.2f}, max: {max_consommation:.2f})")
         mean_cost, std_cost, min_cost, max_cost = self.get_basic_stats_leaves_cost()
-        print(f"* 'cost': {mean_cost:.2f} +- {std_cost:.2f} (min: {min_cost:.2f}, max: {max_cost:.2f})")
+        f_print(f"* 'cost': {mean_cost:.2f} +- {std_cost:.2f} (min: {min_cost:.2f}, max: {max_cost:.2f})")
 
     def get_schedule_by_leaf_path(self, leaf_path: str) -> Schedule:
         return self.base_leaves_paths_dict[leaf_path]["schedule"]
