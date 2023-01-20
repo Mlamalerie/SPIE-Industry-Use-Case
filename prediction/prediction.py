@@ -28,8 +28,3 @@ def time_predictions_hw(time_series: Dict[str, pd.Series]) -> Dict[str, pd.Serie
         if key != 'consommation':
             predictions[key] = solo_prediction_hw(time_series[key])
     return predictions
-
-
-
-
-
