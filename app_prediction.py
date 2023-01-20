@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-from prediction import time_series, total_prediction_hw, time_predictions_hw
+from prediction.prediction import *
 
 st.title("Prediction")
 
 st.write('Predictions effectuées sur un logement à J+1 en fonction des consommations relevées par le passé')
 
-options = pd.DataFrame({
-    'Type': ['Appartement', 'Maison'],
-    'Surface': [15, 25, 30, 50, 65, 80, 85, 100, 110, 120, 130, 135, 140, 150, 160, 200],
-    'Habitants': [1, 2, 3, 4, 5, 6]})
+options = {'Type': ['Appartement', 'Maison'],
+           'Surface': [15, 25, 30, 50, 65, 80, 85, 100, 110, 120, 130, 135, 140, 150, 160, 200],
+           'Habitants': [1, 2, 3, 4, 5, 6]}
 
 option_type = st.selectbox('Quel est votre type de logement ?', options['Type'])
 
@@ -18,7 +17,7 @@ option_surface = st.selectbox('Quelle est la surface de votre logement (en m²) 
 
 option_habitants = st.selectbox("Combien d'habitants résident dans votre logement ?", options['Habitants'])
 
-number = st.number_input("Insérez l'id de votre logement", min_value = 1)
+number = st.number_input("Insérez l'id de votre logement", min_value = 1, value = 2)
 
 logement = '{}{}-{}-{}'.format(option_type[0], option_surface, option_habitants, number)
 series = time_series(logement)
