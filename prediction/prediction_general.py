@@ -17,7 +17,7 @@ consommation_manager = ConsommationDataManager()
 # consommation_manager.get_logement_name_from_csv_file
 
 def get_prediction_general():
-    recap = pd.read_csv("data/data recap type logement.csv")
+    recap = pd.read_csv("../data/data recap type logement.csv")
     recap["consomation moyenne"] = 0.0
     recap["consomation total"] = 0.0
     sample = 2

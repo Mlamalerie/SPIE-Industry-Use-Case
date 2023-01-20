@@ -261,7 +261,7 @@ def plot_history(history_best_individuals: List[Reseau], history_mean_costs: Lis
 
     return fig_1, fig_2
 
-
+@st.cache(suppress_st_warning=True)
 def launch_optimization(mode="global", limite_poste_livraisons: int = 10, limit_maisons_par_pl: int = 50,
                         max_generations: int = 100, population_size: int = 100, mutation_rate: float = 0.1,
                         crossover_rate: float = 0.7, selection_retain_rate: float = 0.1, selection_rate: float = 0.4,
@@ -323,7 +323,7 @@ def main():
                                  limite_poste_livraisons=3, limit_maisons_par_pl=10,
                                  max_generations=50, population_size=1000,
                                  mutation_rate=0.1, crossover_rate=0.7, selection_retain_rate=0.1, selection_rate=0.4,
-                                 plot=True, verbose=True)
+                                 plot_with_streamlit=False, verbose=True)
 
 
 
