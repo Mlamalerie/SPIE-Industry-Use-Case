@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from prediction.prediction import *
 
@@ -35,4 +36,6 @@ if option_consommation_horaire:
 
     consommation_horaire = time_predictions_hw(series)
     st.subheader('Voici les détails de votre consommation prévue pour demain :')
-    st.bar_chart(consommation_horaire, x = "Horaires", y = 'Consommation')
+    fig, ax = plt.subplots()
+    ax.hist(consommation_horaire)
+    st.pyplot(fig)
