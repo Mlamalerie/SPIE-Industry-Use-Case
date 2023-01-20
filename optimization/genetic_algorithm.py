@@ -2,37 +2,41 @@ import random
 from typing import List
 from typing import Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 
-from data.relation_reseau_maisons import get_dict_parents_enfants
+from data.relation_pl_maisons import get_dict_poste_livraisons_maisons
 from optimization.schedule import Schedule, Reseau
 
 # %%
 
-rel_parents_enfants_maisons = get_dict_parents_enfants(limit_parents=2, limit_child_per_parent=5)
-example_schedules_load = [Schedule(logement, p) for p, logements in rel_parents_enfants_maisons.items() for logement in
-                          logements]
-len(example_schedules_load)
+poste_livraisons_maisons = get_dict_poste_livraisons_maisons(limite_poste_livraisons=1, limit_maisons_par_pl=100)
+schedules = [Schedule(logement, p) for p, logements in poste_livraisons_maisons.items() for logement in logements]
 
 # %%
 
-example_schedules_load[0].genome
+schedules[0].consommation
 
 
 # %% [markdown]
 # # 1. Initialisation de la population
-def init_indivual(parents_enfants: dict) -> Reseau:
-    schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
+def init_indivual(poste_livraisons_maisons: dict) -> Reseau:
+    schedules = [Schedule(logement, p) for p, logements in poste_livraisons_maisons.items() for logement in logements]
     return Reseau(schedules=schedules)
 
 
-def init_population(parents_enfants: dict, size: int):
-    return [init_indivual(parents_enfants) for _ in range(size)]
+def init_population(poste_livraisons_maisons: dict, size: int):
+    return [init_indivual(poste_livraisons_maisons) for _ in range(size)]
 
 
-test_population = init_population(rel_parents_enfants_maisons, 100)
+test_population = init_population(poste_livraisons_maisons, 3)
 
 test_population
+len(test_population)
+
+# %%
+
+test_population[0].get_global_consommation()
 
 
 # %% [markdown]
@@ -40,7 +44,7 @@ test_population
 
 def to_probas(w, inverse=False):
     if inverse:
-        w = [1 / i for i in w]
+        w = np.reciprocal(w)
     return np.array(w) / np.sum(w)
 
 
@@ -59,12 +63,16 @@ def choices_candidates(candidates: list, k, p: List[float]):
     return [candidates[i] for i in indexes_choosen]
 
 
-c = [15, 16, 17, 18, 19, 20]
-w = [3, 50, 0.1, 1, 50, 20]
-choices_candidates(c, k=3, p=to_probas(w, inverse=True))
+# c = [15, 16, 17, 18, 19, 20]
+# w = [3, 50, 0.1, 1, 50, 20]
+# choices_candidates(c, k=3, p=to_probas(w, inverse=True))
 
 
 # %%
+
+def get_best(population: List[Reseau]) -> Reseau:
+    return sorted(population)[0]
+
 
 def selection(population: List[Reseau], pct_retain: float = 0.1, pct_selection: float = 0.4) -> List[Reseau]:
     # crerr 2 mode de selection : on garde les pct_retain meilleurs, et on choisie les autres au hasard pondére par le fotness
@@ -81,11 +89,11 @@ def selection(population: List[Reseau], pct_retain: float = 0.1, pct_selection: 
                                                      p=to_probas(w, inverse=True))
 
 
-test_population = selection(population=test_population)
-print(len(test_population))
-test_population
+# test_population = selection(population=test_population)
+# print(len(test_population))
+# test_population
 # %%
-test_population[1].print(display_stats=False)
+# test_population[1].print(display_stats=False)
 
 
 # %% [markdown]
@@ -107,7 +115,7 @@ def crossover(ind1: Reseau, ind2: Reseau) -> Tuple[Reseau]:
     return Reseau(new_schedules1), Reseau(new_schedules2)
 
 
-crossover(test_population[0], test_population[1])
+#crossover(test_population[0], test_population[1])
 
 
 # %%
@@ -123,45 +131,88 @@ def crossing(population: List[Reseau], n_newborns: int, crossover_rate: float = 
     return population + newborns
 
 
-test_population = crossing(test_population, n_newborns=50)
+#test_population = crossing(test_population, n_newborns=50)
 
 # %% [markdown]
 # # 4. Mutation
 
-test_population[0].print(display_stats=False)
+#test_population[0].print(display_stats=False)
 
-tmp = test_population[0]._mutate_leaves(3)
+#tmp = test_population[0]._mutate_leaves(3)
 
-test_population[0].print(display_stats=False)
+#test_population[0].print(display_stats=False)
 
 
 # %%
 
-def mutation(individual: Reseau, mutation_rate: float = 0.1) -> Reseau:
-    if random.random() < mutation_rate:
-        individual.mutate()
+def mutation(population: List[Reseau], mutation_rate: float = 0.1) -> List[Reseau]:
+    for ind in population:
+        if random.random() < mutation_rate:
+            ind.mutate(n_leaves_mutations=5)
 
 
+def evolve(population: List[Reseau], num_generation: int, pct_retain: float = 0.1, pct_selection: float = 0.4,
+           n_newborns: int = 50, mutation_rate: float = 0.1, crossover_rate: float = 0.7) -> List[Reseau]:
+    population = selection(population, pct_retain, pct_selection)
+    population = crossing(population, n_newborns, crossover_rate)
+    mutation(population, mutation_rate)
+    return population
 
 
-def evolve(population: List[Reseau], ):
-    """Creates the next generation of a given population with the
-    given parameters.
-    """
+def genetic_algorithm(poste_livraisons_maisons: dict, max_generations: int, population_size: int,
+                      mutation_rate: float, crossover_rate: float, n_newborns: int, selection_rate: float,
+                      verbose: bool = True):
+    print(">> Starting genetic algorithm... ")
+    print(f"> Parameters : \n",
+          f" * max_generations : {max_generations}\n",
+          f" * population_size : {population_size}\n",
+          f" * mutation_rate : {mutation_rate}\n",
+          f" * crossover_rate : {crossover_rate}\n",
+          f" * n_newborns : {n_newborns}\n",
+          f" * selection_rate : {selection_rate}\n\n",
+          )
+    history_best_individuals = []
+    population = init_population(poste_livraisons_maisons, population_size)
+    for num_generation in range(max_generations):
+        population = evolve(population, num_generation=num_generation, pct_retain=selection_rate,
+                            pct_selection=selection_rate,
+                            n_newborns=n_newborns, mutation_rate=mutation_rate, crossover_rate=crossover_rate)
+        history_best_individuals.append(get_best(population))
 
-    # list of individuals ordered by fitness
+        if verbose:
+            print(
+                f"Generation {num_generation + 1} : best_cost={round(history_best_individuals[-1].get_global_cost(), 2)}")
 
-    # a portion of the most fit individuals become parents
-    # parents = graded[:int(len(graded)*pct_retain))
+    return get_best(population), history_best_individuals
 
 
-def genetic_algorithm(parents_enfants: dict, max_generations: int = 1000, population_size: int = 100,
-                      mutation_rate: float = 0.1, crossover_rate: float = 0.7, selection_rate: float = 0.2) -> Reseau:
-    pass
+def plot_history(history_best_individuals: List[Reseau]):
+    # Plot the evolution of the best individual
+    plt.figure(figsize=(10, 5))
+    # subplot 1 : Evolution of the best individual (cost)
+    plt.subplot(1, 2, 1)
+    plt.plot([ind.get_global_cost() for ind in history_best_individuals])
+    plt.title("Evolution of the best individual")
+    plt.xlabel("Generation")
+    plt.ylabel("Cost")
+    # subplot 2 : Evolution of the best individual (consommation)
+    plt.subplot(1, 2, 2)
+    plt.plot([ind.get_global_consommation() for ind in history_best_individuals])
+    plt.title("Evolution of the best individual")
+    plt.xlabel("Generation")
+    plt.ylabel("Consommation")
+    plt.show()
 
 
 def main():
-    pass
+    rel_poste_livraisons_maisons = get_dict_poste_livraisons_maisons(limite_poste_livraisons=10, limit_maisons_par_pl=3)
+    best_reseau, history_best_individuals = genetic_algorithm(rel_poste_livraisons_maisons, max_generations=50,
+                                                              population_size=100,
+                                                              mutation_rate=0.1, crossover_rate=0.7, n_newborns=500,
+                                                              selection_rate=0.2)
+
+    best_reseau.print()
+    plot_history(history_best_individuals)
 
 
 if __name__ == "__main__":
