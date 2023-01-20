@@ -28,14 +28,14 @@ def get_prediction_general():
         for i in range(sample):
             logement = row["type logement"] + "-" + str(i + 1)
             ts = time_series(logement, consommation_manager=consommation_manager)
-            total_type += total_prediction_hw(ts)[1079] / sample
-        recap.at[index, "consomation moyenne"] = 4.0
+            total_type += total_prediction_hw(ts) / sample
+        recap.at[index, "consomation moyenne"] = total_type
         total_type = total_type * row["nb logement"]
         recap.at[index, "consomation total"] = total_type
-
+        print(recap)
         total += total_type
 
-    recap["consomation percentage"] = recap["consomation total"] / total
+    recap["consomation percentage"] = str(100.0 * recap["consomation total"] / total) + "%"
 
     return recap
 
