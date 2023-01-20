@@ -36,5 +36,8 @@ if option_consommation_horaire:
 
     consommation_horaire = time_predictions_hw(series)
     st.subheader('Voici les détails de votre consommation prévue pour demain :')
-    
+    etiquettes, valeurs = zip(*consommation_horaire)
+    fig, ax = plt.subplots()
+    ax.bar(etiquettes, valeurs)
+    st.pyplot(fig)
     
