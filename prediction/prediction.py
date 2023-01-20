@@ -17,14 +17,14 @@ def solo_prediction_hw(time_serie: pd.Series) -> pd.Series:
     hw = ExponentialSmoothing(time_serie, trend = 'add', damped_trend = True, seasonal = 'mul', seasonal_periods = 365).fit()
     return hw.forecast()
 
-def total_prediction_hw(time_series: Dict[str, pd.Series]) -> pd.Series:
+def total_prediction_hw(time_series: Dict[str, pd.Series]) -> float:
 
-    return solo_prediction_hw(time_series['consommation'])
+    return solo_prediction_hw(time_series['consommation']).values[0]
 
-def time_predictions_hw(time_series: Dict[str, pd.Series]) -> Dict[str, pd.Series]:
+def time_predictions_hw(time_series: Dict[str, pd.Series]) -> Dict[str, float]:
 
     predictions = {}
     for key in time_series:
         if key != 'consommation':
-            predictions[key] = solo_prediction_hw(time_series[key])
+            predictions[key] = solo_prediction_hw(time_series[key]).values[0]
     return predictions
