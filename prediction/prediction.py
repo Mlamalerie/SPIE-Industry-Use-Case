@@ -21,10 +21,10 @@ def total_prediction_hw(time_series: Dict[str, pd.Series]) -> float:
 
     return solo_prediction_hw(time_series['consommation']).values[0]
 
-def time_predictions_hw(time_series: Dict[str, pd.Series]) -> Dict[str, float]:
+def time_predictions_hw(time_series: Dict[str, pd.Series]) -> pd.Series:
 
     predictions = {}
     for key in time_series:
         if key != 'consommation':
             predictions[key] = solo_prediction_hw(time_series[key]).values[0]
-    return predictions
+    return pd.Series(predictions)
