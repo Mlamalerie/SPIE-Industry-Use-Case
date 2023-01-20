@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-from bigtree import Node, print_tree, dict_to_tree
+from bigtree import Node, print_tree, dict_to_tree, tree_to_dot
 from bigtree import find_name as tree_find_name
 
 from data.equipements import EquipementsDataManager
@@ -15,6 +15,7 @@ HEURES_CREUSES = ("20:00", "08:00")
 HEURES_DEJEUNER = ("11:00", "13:00")
 HEURES_DINER = ("18:00", "20:00")
 
+MACHINES_HEURES_CREUSES = ["Md4-TV", "Mc1-FG", "Mc2-CE", "Mc3-CG", "Md5-FO", "Md6-PL", "Mc4-FG", "Mc5-CE"]
 MACHINES_HEURES_CREUSES = ["Md4-TV", "Mc1-FG", "Mc2-CE", "Mc3-CG", "Md5-FO", "Md6-PL", "Mc4-FG", "Mc5-CE"]
 
 
@@ -107,6 +108,27 @@ z[2] = alterate_vector(z[2], max_alteration=1)
 """
 
 
+def evaluate_consecutive_for_vect(vec):
+    vec = np.array(vec)
+    positive_indices = np.where(vec > 0)[0]
+    if len(positive_indices) == 0:
+        return 0
+    else:
+        consecutive_count = 1
+        max_consecutive_count = 1
+        for i in range(1, len(positive_indices)):
+            if positive_indices[i] - positive_indices[i - 1] == 1:
+                consecutive_count += 1
+                max_consecutive_count = max(max_consecutive_count, consecutive_count)
+            else:
+                consecutive_count = 1
+        return max_consecutive_count
+
+
+a = evaluate_consecutive_for_vect([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+b = evaluate_consecutive_for_vect([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+
+
 # %%
 class Schedule:
     eqm = EquipementsDataManager()
@@ -191,8 +213,11 @@ class Schedule:
         cost = self.consommation
         ok, nb_violation = self.is_respect_limite_puissance_constraint()
         cost *= 1 if ok else nb_violation + 1
+
+        # cost *= 1 if self.is_respect_constraint() else 2
         return cost
         # todo : pénaliser si respect pas plage horaires creuses
+
         # todo : prendre en compte consommeation TV
 
     def get_consommation(self):
@@ -348,6 +373,11 @@ class Reseau():
             print_tree(self.tree, attr_list=attr_list, max_depth=5 if self.n_leaves > 100 else None)
         f_print("-" * 50)
 
+    def to_dot(self):
+        graph = tree_to_dot(self.tree, node_colour="gold")
+        graph.write_png("tree.png")
+        graph.write_png("tree2.png")
+
     # TODO Rename this here and in `print`
     def _print_stats(self, f_print=print):
         n_leaves = len(list(self.tree.leaves))
@@ -438,8 +468,8 @@ def init_indivual(parents_enfants: dict) -> Reseau:
 if __name__ == "__main__":
     # reseau = Reseau()
     # reseau.print()
-    rel_parents_enfants_maisons = get_dict_poste_livraisons_maisons(limite_poste_livraisons=15,
-                                                                    limit_maisons_par_pl=100)
+    rel_parents_enfants_maisons = get_dict_poste_livraisons_maisons(limite_poste_livraisons=3,
+                                                                    limit_maisons_par_pl=2)
     example_schedules_load = [Schedule(logement, p) for p, logements in rel_parents_enfants_maisons.items() for logement
                               in logements]
 
