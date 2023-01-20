@@ -9,11 +9,13 @@ from bigtree import find_name as tree_find_name
 
 from data.equipements import EquipementsDataManager
 from data.limites_puissance import LimitesPuissanceDataManager
-from data.reseau_maisons import get_dict_parents_enfants
+from data.relation_pl_maisons import get_dict_poste_livraisons_maisons
 
-HEURES_CREUSES = ("20:00", "06:00")
+HEURES_CREUSES = ("20:00", "08:00")
 HEURES_DEJEUNER = ("11:00", "13:00")
 HEURES_DINER = ("18:00", "20:00")
+
+MACHINES_HEURES_CREUSES = ["Md4-TV", "Mc1-FG", "Mc2-CE", "Mc3-CG", "Md5-FO", "Md6-PL", "Mc4-FG", "Mc5-CE"]
 
 
 # %%
@@ -25,7 +27,7 @@ def hour_2_index(hour: str) -> int:
 
 
 def put_value_randomly_on_vector(vector, value: float, how_many: int = 1, index_range: tuple = None,
-                                 sequence: bool = False):
+                                 follow: bool = False):
     """Put several times, randomly, the same value in different index of a vector
     :param vector: vector to modify
     :param value: value to put in vector
@@ -46,7 +48,7 @@ def put_value_randomly_on_vector(vector, value: float, how_many: int = 1, index_
         len_range = index_range[1] - index_range[0] + 1
         how_many = min(how_many, len_range)
         indexes_range_list = list(range(index_range[0], index_range[1] + 1))
-        if not sequence:
+        if not follow:
             indexes = random.sample(indexes_range_list, how_many)
         else:
             index_choose = random.choice(indexes_range_list[:-how_many + 1] if how_many > 1 else indexes_range_list)
@@ -58,7 +60,7 @@ def put_value_randomly_on_vector(vector, value: float, how_many: int = 1, index_
         len_range = index_range[1] - index_range[0] + len_vector + 1
         how_many = min(how_many, len_range)
         indexes_range_list = list(range(index_range[0], len_vector)) + list(range(0, index_range[1] + 1))
-        if not sequence:
+        if not follow:
             indexes = random.sample(indexes_range_list, how_many)
         else:
             index_choose = random.choice(indexes_range_list[:-how_many + 1] if how_many > 1 else indexes_range_list)
@@ -76,9 +78,33 @@ def put_value_randomly_on_vector(vector, value: float, how_many: int = 1, index_
     return vector
 
 
-z = np.zeros((3, 24), dtype=np.float32)
-z[2] = put_value_randomly_on_vector(z[2], value=0.2, how_many=6, sequence=True)
-z
+def alterate_vector(vector, max_alteration: int = 1):
+    """Put several times, randomly, the same value in different index of a vector
+    :param vector: vector to modify
+    """
+    len_vector = len(vector)
+    count = 0
+    for i in range(len_vector):
+        if vector[i] != 0:
+            vector[i] = random.choice(vector)
+
+            # random choose index on vector
+            index = random.randint(0, len_vector - 1)
+            # put value on vector
+            vector[index] = vector[i]
+            count += 1
+            if count >= max_alteration:
+                break
+
+    return vector
+
+
+"""z = np.zeros((3, 24), dtype=np.float32)
+z[2] = put_value_randomly_on_vector(z[2], value=0.2, how_many=6, follow=True)
+
+
+z[2] = alterate_vector(z[2], max_alteration=1)
+"""
 
 
 # %%
@@ -91,12 +117,10 @@ class Schedule:
         self.parent_name = parent_name
         self.logement_equipements: list = Schedule.eqm.get_equipements_by_logement_name(self.logement_name)
         self.genome: np.array = np.zeros((len(Schedule.eqm.equipements_names), 24), dtype=float)
-        self.init_random_genome()
-        self.cost: float = 100.0 + round(random.random(), 2)
         self.consommation: float = 0.0
-        self.evaluate_consommation()
+        self.init_random_genome()
 
-        self.mutation_rate = 0.1  # 10% chance of mutation
+
         # self.decrease_for_constraint_violation = 0.25  # 25% decrease in cost if constraint is violated
 
     def init_random_genome(self):
@@ -108,19 +132,26 @@ class Schedule:
             # get caracteristics of equipement
 
             if caracteristiques := Schedule.eqm.caracteristiques_equipements.get(logement_equipement_name):
+                # temps de cycle
                 t_cycle = caracteristiques.get("tps_cycle")
                 t_cycle = round(t_cycle, 0) if t_cycle > 1 else 1.0  # d'après jenna
-                puissance = caracteristiques.get("puissance")
-                sequensable = caracteristiques.get("sequensable")
+                t_cycle = int(t_cycle) if logement_equipement_name != "Md4-TV" else random.randint(3, 5)
 
-                hr_debut = caracteristiques.get("hr_debut")
+                # puissance par cycle
+                puissance = caracteristiques.get("puissance")
+
+                # sequencable : vaut 1 si aligné obligatoirement
+                sequensable = bool(caracteristiques.get("sequensable"))
+
+                # hr de debut
+                hr_debut = caracteristiques.get(
+                    "hr_debut")  # -1 si pas de contrainte, 1 si généré une fois dans heures creuses, N si générer N fois dans heures creuse
 
                 how_many_to_put = int(t_cycle)
-                value_to_put = round(puissance / t_cycle, 1)
+                value_to_put = puissance
 
                 horaire_range = None
                 if hr_debut > 0:
-
                     horaire_range = (hour_2_index(HEURES_CREUSES[0]), hour_2_index(HEURES_CREUSES[1]))
                     for _ in range(hr_debut):
                         self.genome[index_genome_matrix] = put_value_randomly_on_vector(
@@ -128,13 +159,13 @@ class Schedule:
                             value=value_to_put,
                             how_many=how_many_to_put,
                             index_range=horaire_range,
-                            sequence=sequensable)
+                            follow=not sequensable)
                 else:
                     self.genome[index_genome_matrix] = put_value_randomly_on_vector(self.genome[index_genome_matrix],
                                                                                     value=value_to_put,
                                                                                     how_many=how_many_to_put,
                                                                                     index_range=horaire_range,
-                                                                                    sequence=sequensable)
+                                                                                    follow=sequensable)
 
                 # if logement_equipement_name == "Mc2-CE":
                 #    print("Mc2-CE", self.genome[index_genome_matrix])
@@ -142,10 +173,12 @@ class Schedule:
             else:
                 raise ValueError(f"caracteristiques not found for equipement")
 
-    def get_surface(self) -> int:
-        return int(self.logement_name.split("-")[0][1:])
+        self.evaluate_consommation()
 
-    def is_respect_constraint(self, puissance_limite: float = None) -> bool:
+    def get_surface(self) -> int:
+        return int(self.logement_name.split("-")[0][1:])  # todo delele all number
+
+    def is_respect_limite_puissance_constraint(self, puissance_limite: float = None) -> bool:
         puissance_limite = Schedule.lpm.get_limites(self.get_surface())[
             "kVA"] if puissance_limite is None else puissance_limite
         sum_vect = np.sum(self.genome, axis=0)  # array avec sommes des puissance
@@ -156,13 +189,12 @@ class Schedule:
         self.consommation = np.sum(self.genome)
 
     def get_cost(self):
-        cost = 0.0
-
-        ok, nb_violation = self.is_respect_constraint()
-        if ok:
-            return self.cost
-        else:
-            return self.cost * nb_violation
+        cost = self.consommation
+        ok, nb_violation = self.is_respect_limite_puissance_constraint()
+        cost *= (nb_violation + 1) if not ok else 1
+        return cost
+        # todo : pénaliser si respect pas plage horaires creuses
+        # todo : prendre en compte consommeation TV
 
     def get_consommation(self):
         return self.consommation
@@ -173,9 +205,23 @@ class Schedule:
     def get_logement_name(self):
         return self.logement_name
 
-    def mutate(self):
-        if random.random() < self.mutation_rate:
-            print("*")
+    def mutate(self):  # todo : add mutation
+        # global MACHINES_HEURES_CREUSES
+        # get indexes of genomes to mutate
+        n = len(self.genome)
+        indexes = np.random.choice(np.arange(n), size=random.randint(1, n - 1), replace=False)
+
+        indexes_hc = [Schedule.eqm.get_index_equipement_by_name(equipement_hc) for equipement_hc in
+                      MACHINES_HEURES_CREUSES]
+        for i in indexes:
+            if i in indexes_hc:
+                self.genome[i] = alterate_vector(self.genome[i], max_alteration=1)
+            else:
+                self.genome[i] = alterate_vector(self.genome[i], max_alteration=random.randint(1, 2))
+
+    def set_new_genome(self, genome):
+        self.genome = genome
+        self.evaluate_consommation()
 
 
 def vizualise_schedule(schedule: Schedule):
@@ -211,21 +257,17 @@ def get_all_ancestors(pl_id: str, sort_desc=True) -> list:
 
 # print(get_all_ancestors("PL122"))
 
-
 # %%
 
 class Reseau():
-    def __init__(self, schedules: List[Schedule]):
-        self.schedules = schedules
+    def __init__(self, schedules: List[Schedule]):  # todo,
 
         self.tree = None
-        self.global_cost: float = 0.0
-        # self.base_leaves_paths_list = None
-        self.base_leaves_paths_dict = None
+        self.global_cost: float = None
+        self.base_leaves_paths_dict: dict = None
+        self.leaves_parents_names = []
 
-        # self.parents_enfants = get_dict_parents_enfants(limit_parents=limit_parents,
-        #                                                limit_child_per_parent=limit_child_per_parent)
-        self.construct_tree()
+        self.construct_tree(schedules)
         self.load_global_cost()
 
     def logement_name_to_node_name(self, parent_name, logement_name: str) -> str:
@@ -233,17 +275,20 @@ class Reseau():
             get_all_ancestors(parent_name) + [f"{parent_name}/{logement_name}"]
         )
 
-    def sum_leafs(self, node: Node) -> float:
+    def sum_leaves(self, node: Node, what="cost") -> float:
         if node.is_leaf:
-            return node.schedule.cost
+            return node.schedule.get_cost() if what == "cost" else node.schedule.get_consommation()
         else:
-            return sum(self.sum_leafs(child) for child in node.children)
+            return sum([self.sum_leaves(child) for child in node.children])
 
     def load_global_cost(self) -> None:
-        self.global_cost = self.sum_leafs(self.tree)
+        self.global_cost = self.sum_leaves(self.tree, "cost")
 
     def get_global_cost(self) -> float:
         return self.global_cost
+
+    def get_global_consommation(self) -> float:
+        return self.sum_leaves(self.tree, "consommation")
 
     def __lt__(self, other):
         return self.global_cost < other.global_cost
@@ -252,69 +297,147 @@ class Reseau():
         node = tree_find_name(self.tree, parent_name)
         if node is None:
             raise ValueError(f"Parent {parent_name} not found")
-        return self.sum_leafs(node)
+        return self.sum_leaves(node, "cost")
 
-    def get_basic_stats_leafs_cost(self) -> float:
-        costs = np.array([leaf.schedule.cost for leaf in self.tree.leaves])
+    def get_basic_stats_leaves_cost(self):
+        costs = np.array([leaf.schedule.get_cost() for leaf in self.tree.leaves])
         return np.mean(costs), np.std(costs), np.min(costs), np.max(costs)
 
-    def construct_tree(self, verbose=False):
+    def get_basic_stats_leaves_consommation(self):
+        consommations = np.array([leaf.schedule.get_consommation() for leaf in self.tree.leaves])
+        return np.mean(consommations), np.std(consommations), np.min(consommations), np.max(consommations)
+
+    def construct_tree(self, schedules: List[Schedule], verbose=False):
 
         # self.path_dict = {k: {"cost": round(random(), 1)} for k in result}  # todo
-        if len(self.schedules) == 0:
-            raise ValueError("No schedules in Reseau")
+        if len(schedules) == 0:
+            raise ValueError("No schedules provided")
 
         self.base_leaves_paths_dict = {}
+        self.leaves_parents_names = []
         # for each schedule
-        for schedule in self.schedules:
+        for schedule in schedules:
+            self.leaves_parents_names.append(schedule.get_parent_name())
             leaf_path = self.logement_name_to_node_name(schedule.parent_name, schedule.logement_name)
-            self.base_leaves_paths_dict[leaf_path] = {"schedule": schedule}
+            self.base_leaves_paths_dict[leaf_path] = {"schedule": schedule,
+                                                      "consommation": round(schedule.consommation, 1)}
 
         self.tree = dict_to_tree(self.base_leaves_paths_dict)
+        self.n_leaves = len(list(self.tree.leaves))
 
-        # bring up cost to parents
-        # for node in self.tree.traverse("postorder"):
         if verbose:
             print("tree construction done.")
 
-    def print(self, display_stats=True):
+    def print(self, display_stats=True, display_tree=True, attr_list=["consommation"]):
         if self.tree is None:
             raise ValueError("Tree is not constructed yet")
 
-        if display_stats and self.schedules:
+        print(f"id : {id(self)}")
+        if display_stats and self.tree:
             self._print_stats()
-        print_tree(self.tree, attr_list=["cost"])
+
+        if display_tree:
+            print_tree(self.tree, attr_list=attr_list, max_depth=5 if self.n_leaves > 100 else None)
         print("-" * 50)
 
     # TODO Rename this here and in `print`
     def _print_stats(self):
         n_leaves = len(list(self.tree.leaves))
-        conso = self.get_global_cost()
+
         print("-" * 1, "GLOBAL STATS", "-" * 35)
-        print("* Cost accumulés:", conso, "\n")
-        print("-" * 1, f"LEAFS STATS ({n_leaves} logements)", "-" * 22)
-        mean_, std_, min_, max_ = self.get_basic_stats_leafs_cost()
-        print("* Cost moyenne:", mean_)
-        print("* Cost std:", round(std_))
-        print("* Cost min:", min_)
-        print("* Cost max:", max_)
-        print("-" * 50)
+        print("* Consommation global du réseau:", round(self.get_global_consommation(), 1), "KWh")
+        print("* 'Cost':", round(self.get_global_cost(), 1))
+
+        respects = [s.is_respect_limite_puissance_constraint()[0] for s in self.get_leaves_schedules()]
+        print(f"* % Plannings avec les contraintes de puissances respectés: {np.sum(respects) / len(respects):.2%}",
+              "\n")
+
+        print("-" * 1, f"LEAVES STATS ({n_leaves} maisons)", "-" * 22)
+        mean_consommation, std_consommation, min_consommation, max_consommation = self.get_basic_stats_leaves_consommation()
+        print(
+            f"* consommation: {mean_consommation:.2f} +- {std_consommation:.2f} (min: {min_consommation:.2f}, max: {max_consommation:.2f})")
+        mean_cost, std_cost, min_cost, max_cost = self.get_basic_stats_leaves_cost()
+        print(f"* 'cost': {mean_cost:.2f} +- {std_cost:.2f} (min: {min_cost:.2f}, max: {max_cost:.2f})")
 
     def get_schedule_by_leaf_path(self, leaf_path: str) -> Schedule:
         return self.base_leaves_paths_dict[leaf_path]["schedule"]
 
-    def set_schedules(self, schedules: List[Schedule]):
-        self.schedules = schedules
-        self.construct_tree()
+    def get_leaves_list(self) -> list:
+        return list(self.tree.leaves)
 
-    def get_schedules(self) -> List[Schedule]:
-        return self.schedules
+    def get_leaves_schedules_by_node_parent(self, parent_name: str) -> List[Schedule]:
+        node = tree_find_name(self.tree, parent_name)
+        if node is None:
+            raise ValueError(f"Parent {parent_name} not found")
+        return [leaf.schedule for leaf in node.leaves]
+
+    def get_leaves_schedules(self) -> List[Schedule]:
+        return self.get_leaves_schedules_by_node_parent("PS")
+
+    def _mutate_leaves(self, limit_leaves_mutations: int = None) -> list:
+        if limit_leaves_mutations is None:
+            limit_leaves_mutations = self.n_leaves
+        limit_leaves_mutations = min(limit_leaves_mutations, self.n_leaves)
+        n_mutations = random.randint(1, limit_leaves_mutations)
+        # generate random indexes to mutate
+        indexes = np.random.choice(self.n_leaves, n_mutations, replace=False)
+
+        new_schedules = []
+        for ix, leaf in enumerate(self.tree.leaves):
+            # get schedule
+            schedule = leaf.schedule
+            # mutate
+            if ix in indexes:
+                schedule.mutate()
+            new_schedules.append(schedule)
+
+        self.construct_tree(new_schedules)
+        return new_schedules
+
+    def _mutate_leaves_and_sibling(self, n_leaves_to_focus: int, limit_leaves_mutations: int) -> None:
+        if limit_leaves_mutations is None:
+            limit_leaves_mutations = self.n_leaves
+
+        limit_leaves_mutations = min(limit_leaves_mutations, self.n_leaves)
+
+        pass
+        for _ in range(n_leaves_to_focus):
+            # get random leaf
+            leaf = random.choice(self.get_leaves_list())
+            # get siblings
+            siblings = leaf.siblings
+            # mutate all siblings
+            for sibling in siblings:
+                sibling.schedule.mutate()
+
+        self.construct_tree([leaf.schedule for leaf in self.tree.leaves])
+
+    def mutate(self, n_leaves_mutations=1, n_leaves_focus=1,
+               rate: float = 0.7) -> None:  # todo n_leaves_mutations=N_MAISON_PAR_PL ?
+        # Mutation de leaves : Cette méthode consiste à sélectionner au hasard un nœud de l'arbre et à le remplacer par un nœud aléatoire ou un nœud produit par une fonction de création de nœuds.
+
+        if random.random() < rate:
+            self._mutate_leaves(limit_leaves_mutations=n_leaves_mutations)
+        else:
+            self._mutate_leaves_and_sibling(n_leaves_to_focus=n_leaves_focus, limit_leaves_mutations=n_leaves_mutations)
+
+
+def init_indivual(parents_enfants: dict) -> Reseau:
+    schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
+    return Reseau(schedules=schedules)
 
 
 if __name__ == "__main__":
     # reseau = Reseau()
     # reseau.print()
-    parents_enfants = get_dict_parents_enfants(2, 5)
+    rel_parents_enfants_maisons = get_dict_poste_livraisons_maisons(limite_poste_livraisons=15,
+                                                                    limit_maisons_par_pl=100)
+    example_schedules_load = [Schedule(logement, p) for p, logements in rel_parents_enfants_maisons.items() for logement
+                              in logements]
+
+    arezo = init_indivual(rel_parents_enfants_maisons)
+    arezo.print()
+
     # example_schedules = [Schedule(logement, p) for p, logements in parents_enfants.items() for logement in logements]
     # reseau = Reseau(schedules=example_schedules)
 
