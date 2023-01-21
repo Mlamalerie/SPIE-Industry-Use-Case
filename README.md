@@ -1,11 +1,11 @@
 # Power consumption 📅🔌
 
-Projet en collaboration avec [SPIE](https://www.spie.com/fr) 🇫🇷🔌.
+Project in collaboration with [SPIE](https://www.spie.com/fr) 🇫🇷🔌.
 
 ## Objective
 
-1. **Prédire** la consommation électique d'une maison en fonction de ses caractéristiques.
-2. **Optimiser** le planning des activités électrique de la maison pour réduire sa consommation électrique.
+1. **Predict** the electrical consumption of a house according to its characteristics.
+2. **Optimize** the scheduling of electrical activities of the house to reduce its electrical consumption.
 
 ## Results
 
@@ -23,17 +23,16 @@ Projet en collaboration avec [SPIE](https://www.spie.com/fr) 🇫🇷🔌.
 pip install -r requirements.txt
 ````
 
-## Exécution
+## Execution
 
-1. Assurez-vous d'avoir installé les prérequis ci-dessus
-2. Téléchargez ou clonez ce dépôt sur votre ordinateur
-3. Ouvrez un terminal et accédez au répertoire de l'application
-4. Exécutez les commandes :
-    - `streamlit run app_optimization.py` pour l'optimisation
-    - `streamlit run app_prediction.py` pour la prédiction
-5. Ouvrez votre navigateur web et accédez à l'adresse `http://localhost:8501`
+1. Make sure you have installed the above prerequisites
+2. Download or clone this repository to your computer
+3. Open a terminal and go to the application directory
+4. Run the commands :
+    - `streamlit run app_optimization.py` for optimization
+    - `streamlit run app_prediction.py` for prediction
 
-Vous devriez maintenant voir l'application en cours d'exécution 🚀 !
+You should now see the application running 🚀 !
 
 ## Authors
 
