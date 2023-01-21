@@ -19,7 +19,7 @@ option_habitants = st.selectbox("Combien d'habitants résident dans votre logeme
 
 number = st.number_input("Insérez l'id de votre logement", min_value=1, value=2)
 
-logement = '{}{}-{}-{}'.format(option_type[0], option_surface, option_habitants, number)
+logement = f'{option_type[0]}{option_surface}-{option_habitants}-{number}'
 series = time_series(logement)
 
 option_consommation_totale = st.checkbox('Consommation totale')

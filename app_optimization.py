@@ -42,16 +42,20 @@ if st.button("Launch optimization", on_click=callback):
 
     # Launch optimization and display loading bar
     with st.spinner("Optimization in progress...") as spinner:
-        result = launch_optimization(selected_launch_mode,
-                                     limite_poste_livraisons=limite_poste_livraisons,
-                                     limit_maisons_par_pl=limit_maisons_par_pl,
-                                     max_generations=num_generations, population_size=pop_size,
-                                     mutation_rate=mutation_rate, crossover_rate=crossover_rate,
-                                     selection_retain_rate=selection_retain_rate,
-                                     selection_rate=selection_rate,
-                                     display_plot=True if selected_launch_mode == "global" else False,
-                                     plot_with_streamlit=True if selected_launch_mode == "global" else False,
-                                     verbose=True)
+        result = launch_optimization(
+            selected_launch_mode,
+            limite_poste_livraisons=limite_poste_livraisons,
+            limit_maisons_par_pl=limit_maisons_par_pl,
+            max_generations=num_generations,
+            population_size=pop_size,
+            mutation_rate=mutation_rate,
+            crossover_rate=crossover_rate,
+            selection_retain_rate=selection_retain_rate,
+            selection_rate=selection_rate,
+            display_plot=selected_launch_mode == "global",
+            plot_with_streamlit=selected_launch_mode == "global",
+            verbose=True,
+        )
 
     # Display results and dont quit the spinner
 
