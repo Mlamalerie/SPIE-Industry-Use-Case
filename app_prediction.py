@@ -1,6 +1,5 @@
-import streamlit as st
-import pandas as pd
 import matplotlib.pyplot as plt
+import streamlit as st
 
 from prediction.prediction import *
 
@@ -27,7 +26,7 @@ option_consommation_totale = st.checkbox('Consommation totale')
 
 if option_consommation_totale:
     consommation_totale = total_prediction_hw(series)
-    st.subheader('Demain, vous consommerez un total de {:2d} kWh.'.format(consommation_totale))
+    st.subheader('Demain, vous consommerez un total de {:.1f} kWh.'.format(consommation_totale))
 
 option_consommation_horaire = st.checkbox('Consommation horaire')
 

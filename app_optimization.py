@@ -2,14 +2,12 @@ import streamlit as st
 
 from optimization.genetic_algorithm import launch_optimization
 
-st.title("Optimization")
-
-st.write("This is a test")
+st.title("Optimization ⚙️")
 
 modes = ["global", "local"]
 selected_launch_mode = st.sidebar.selectbox("Select mode (focus)", modes)
-limite_poste_livraisons = st.sidebar.slider("Limite Poste de livraisons (PL)", 1, 19, 3, 1)
-limit_maisons_par_pl = st.sidebar.slider("Limite nombre de maisons par PL", 1, 200, 3, 5)
+limite_poste_livraisons = st.sidebar.slider("Limit number of PL (Poste de livraisons)", 1, 19, 3, 1)
+limit_maisons_par_pl = st.sidebar.slider("Limit number of houses per PL", 1, 200, 3, 5)
 
 col1, col2 = st.columns(2)
 
