@@ -22,15 +22,11 @@ number = st.number_input("Insérez l'id de votre logement", min_value=1, value=2
 logement = f'{option_type[0]}{option_surface}-{option_habitants}-{number}'
 series = time_series(logement)
 
-option_consommation_totale = st.checkbox('Consommation totale')
-
-if option_consommation_totale:
+if option_consommation_totale := st.checkbox('Consommation totale'):
     consommation_totale = total_prediction_hw(series)
     st.subheader('Demain, vous consommerez un total de {:.1f} kWh.'.format(consommation_totale))
 
-option_consommation_horaire = st.checkbox('Consommation horaire')
-
-if option_consommation_horaire:
+if option_consommation_horaire := st.checkbox('Consommation horaire'):
     consommation_horaire = time_predictions_hw(series)
     st.subheader('Voici les détails de votre consommation prévue pour demain :')
     etiquettes, valeurs = zip(*consommation_horaire)

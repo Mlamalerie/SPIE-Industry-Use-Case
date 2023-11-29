@@ -54,7 +54,7 @@ class ConsommationDataManager:
     def load_logements_types(self) -> None:
         # get all directories in data_dir
         dirs = glob(self.conso_reseau_distribt_path + "*/")
-        if len(dirs) == 0:
+        if not dirs:
             raise FileNotFoundError(f"No directories found in {self.conso_reseau_distribt_path}")
         # get directory name for each directory path
         logements_types = [os.path.basename(os.path.normpath(dirpath)).split()[-1] for dirpath in dirs]
@@ -90,7 +90,7 @@ class ConsommationDataManager:
 
         # get all csv files in dirpath (use glob)
         csv_files = glob(f"{dirpath}*.csv")
-        if len(csv_files) == 0:
+        if not csv_files:
             raise FileNotFoundError(f"No csv files found in {dirpath}")
 
         # use multithreading to load all csv files
@@ -113,7 +113,7 @@ class ConsommationDataManager:
 
         # get all directories in data_dir
         dirs = glob(f"{self.conso_reseau_distribt_path}*/")
-        if len(dirs) == 0:
+        if not dirs:
             raise FileNotFoundError(f"No directories found in {self.conso_reseau_distribt_path}")
 
         # load all directories

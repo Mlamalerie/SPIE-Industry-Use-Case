@@ -113,16 +113,15 @@ def evaluate_consecutive_for_vect(vec):
     positive_indices = np.where(vec > 0)[0]
     if len(positive_indices) == 0:
         return 0
-    else:
-        consecutive_count = 1
-        max_consecutive_count = 1
-        for i in range(1, len(positive_indices)):
-            if positive_indices[i] - positive_indices[i - 1] == 1:
-                consecutive_count += 1
-                max_consecutive_count = max(max_consecutive_count, consecutive_count)
-            else:
-                consecutive_count = 1
-        return max_consecutive_count
+    consecutive_count = 1
+    max_consecutive_count = 1
+    for i in range(1, len(positive_indices)):
+        if positive_indices[i] - positive_indices[i - 1] == 1:
+            consecutive_count += 1
+            max_consecutive_count = max(max_consecutive_count, consecutive_count)
+        else:
+            consecutive_count = 1
+    return max_consecutive_count
 
 
 a = evaluate_consecutive_for_vect([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -150,49 +149,47 @@ class Schedule:
         # print("equipements_list", self.logement_equipements)
         for logement_equipement_name in self.logement_equipements:
             index_genome_matrix = Schedule.eqm.get_index_equipement_by_name(logement_equipement_name)
-            # get caracteristics of equipement
+            if not (
+                caracteristiques := Schedule.eqm.caracteristiques_equipements.get(
+                    logement_equipement_name
+                )
+            ):
+                raise ValueError("caracteristiques not found for equipement")
 
-            if caracteristiques := Schedule.eqm.caracteristiques_equipements.get(logement_equipement_name):
-                # temps de cycle
-                t_cycle = caracteristiques.get("tps_cycle")
-                t_cycle = round(t_cycle, 0) if t_cycle > 1 else 1.0  # d'après jenna
-                t_cycle = int(t_cycle) if logement_equipement_name != "Md4-TV" else random.randint(3, 5)
+            # temps de cycle
+            t_cycle = caracteristiques.get("tps_cycle")
+            t_cycle = round(t_cycle, 0) if t_cycle > 1 else 1.0  # d'après jenna
+            t_cycle = int(t_cycle) if logement_equipement_name != "Md4-TV" else random.randint(3, 5)
 
-                # puissance par cycle
-                puissance = caracteristiques.get("puissance")
+            # puissance par cycle
+            puissance = caracteristiques.get("puissance")
 
-                # sequencable : vaut 1 si aligné obligatoirement
-                sequensable = bool(caracteristiques.get("sequensable"))
+            # sequencable : vaut 1 si aligné obligatoirement
+            sequensable = bool(caracteristiques.get("sequensable"))
 
-                # hr de debut
-                hr_debut = caracteristiques.get(
-                    "hr_debut")  # -1 si pas de contrainte, 1 si généré une fois dans heures creuses, N si générer N fois dans heures creuse
+            # hr de debut
+            hr_debut = caracteristiques.get(
+                "hr_debut")  # -1 si pas de contrainte, 1 si généré une fois dans heures creuses, N si générer N fois dans heures creuse
 
-                how_many_to_put = int(t_cycle)
-                value_to_put = puissance
+            how_many_to_put = t_cycle
+            value_to_put = puissance
 
-                horaire_range = None
-                if hr_debut > 0:
-                    horaire_range = (hour_2_index(HEURES_CREUSES[0]), hour_2_index(HEURES_CREUSES[1]))
-                    for _ in range(hr_debut):
-                        self.genome[index_genome_matrix] = put_value_randomly_on_vector(
-                            self.genome[index_genome_matrix],
-                            value=value_to_put,
-                            how_many=how_many_to_put,
-                            index_range=horaire_range,
-                            follow=not sequensable)
-                else:
-                    self.genome[index_genome_matrix] = put_value_randomly_on_vector(self.genome[index_genome_matrix],
-                                                                                    value=value_to_put,
-                                                                                    how_many=how_many_to_put,
-                                                                                    index_range=horaire_range,
-                                                                                    follow=sequensable)
-
-                # if logement_equipement_name == "Mc2-CE":
-                #    print("Mc2-CE", self.genome[index_genome_matrix])
-
+            horaire_range = None
+            if hr_debut > 0:
+                horaire_range = (hour_2_index(HEURES_CREUSES[0]), hour_2_index(HEURES_CREUSES[1]))
+                for _ in range(hr_debut):
+                    self.genome[index_genome_matrix] = put_value_randomly_on_vector(
+                        self.genome[index_genome_matrix],
+                        value=value_to_put,
+                        how_many=how_many_to_put,
+                        index_range=horaire_range,
+                        follow=not sequensable)
             else:
-                raise ValueError(f"caracteristiques not found for equipement")
+                self.genome[index_genome_matrix] = put_value_randomly_on_vector(self.genome[index_genome_matrix],
+                                                                                value=value_to_put,
+                                                                                how_many=how_many_to_put,
+                                                                                index_range=horaire_range,
+                                                                                follow=sequensable)
 
         self.evaluate_consommation()
 
@@ -438,7 +435,6 @@ class Reseau():
 
         limit_leaves_mutations = min(limit_leaves_mutations, self.n_leaves)
 
-        pass
         for _ in range(n_leaves_to_focus):
             # get random leaf
             leaf = random.choice(self.get_leaves_list())

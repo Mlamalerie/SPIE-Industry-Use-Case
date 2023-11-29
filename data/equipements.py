@@ -92,10 +92,11 @@ class EquipementsDataManager:
 
     def load_equipements_list_par_logement(self) -> None:
         """create a dict (key = logement_name, value = list of equipements who equals 1)"""
-        equipements_list = {}
         df_equipements_par_logements = self.get_df_equipements_par_logements()
-        for logement_name, equipements in df_equipements_par_logements.iterrows():
-            equipements_list[logement_name] = equipements[equipements == 1].index.tolist()
+        equipements_list = {
+            logement_name: equipements[equipements == 1].index.tolist()
+            for logement_name, equipements in df_equipements_par_logements.iterrows()
+        }
         self.equipements_list_par_logements = equipements_list
 
     def get_equipements_by_logement_name(self, logement_name) -> list:

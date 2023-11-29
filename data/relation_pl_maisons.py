@@ -14,8 +14,9 @@ def get_dict_poste_livraisons_maisons(limite_poste_livraisons: int = None, limit
 
     if poste_livraisons is not None:
         # verify that all poste_livraisons exist in the data
-        assert all([pl in df_parents_enfants_group.index for pl in
-                    poste_livraisons]), "Some poste_livraisons are not in the data"
+        assert all(
+            pl in df_parents_enfants_group.index for pl in poste_livraisons
+        ), "Some poste_livraisons are not in the data"
 
         df_parents_enfants_group = df_parents_enfants_group.loc[poste_livraisons]
 

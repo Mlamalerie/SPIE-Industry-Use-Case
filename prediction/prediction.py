@@ -7,10 +7,7 @@ from data.consommation import ConsommationDataManager
 def time_series(logement_name: str, consommation_manager: ConsommationDataManager = ConsommationDataManager()) -> Dict[str, pd.Series]:
 
     df_logement = consommation_manager.get_df_conso_by_logement_name(logement_name)
-    series_logement = {}
-    for column in df_logement.columns:
-        series_logement[column] = df_logement[column]
-    return series_logement
+    return {column: df_logement[column] for column in df_logement.columns}
 
 def solo_prediction_hw(time_serie: pd.Series) -> pd.Series:
 
@@ -23,8 +20,8 @@ def total_prediction_hw(time_series: Dict[str, pd.Series]) -> float:
 
 def time_predictions_hw(time_series: Dict[str, pd.Series]) -> pd.Series:
 
-    predictions = {}
-    for key in time_series:
-        if key != 'consommation':
-            predictions[key] = solo_prediction_hw(time_series[key]).values[0]
-    return predictions
+    return {
+        key: solo_prediction_hw(time_series[key]).values[0]
+        for key in time_series
+        if key != 'consommation'
+    }
